@@ -1,0 +1,189 @@
+Block 1: Daten laden
+
+Worum es geht: In Deinem Vorprojekt lagen alle Daten direkt im Code (Listen.js). Hier kommen sie von außen, von einem Server. Dafür braucht es vier neue Konzepte. Wir verfolgen dazu einen Weg durch vier Dateien: Was passiert, wenn Du /jobs/8 öffnest?
+
+JobDetail.jsx  →  useAsync.js  →  api/index.js  →  mock.js  (später: http.js → Server)
+   Seite          wartet und        entscheidet,      liefert
+                  merkt sich        woher die         die Daten
+                  den Zustand       Daten kommen
+1. Die Seite: drei Zustände
+
+Datei: src/pages/JobDetail.jsx
+
+jsx
+const { id } = useParams();
+const { data, error, loading } = useAsync(() => getJob(id), [id]);
+if (loading) return <Loading />;
+if (error) return <ErrorState error={error} />;
+const { job } = data;
+
+Konzept: Daten von außen sind nicht sofort da, und sie können fehlschlagen. Deshalb kennt jede Seite, die Daten lädt, drei Zustände:
+
+Zustand	Bedeutung	Anzeige
+loading	Anfrage läuft noch	Lade-Kreisel
+error	Anfrage ist fehlgeschlagen (z. B. Stelle gibt es nicht)	Fehlerseite
+data	Antwort ist da	die eigentliche Seite
+
+Die frühen return-Zeilen sorgen dafür, dass der Rest der Funktion nur läuft, wenn data wirklich existiert. Ohne sie würde data.job beim ersten Rendern abstürzen, weil data da noch null ist.
+
+Die Seite selbst weiß nicht, wie geladen wird. Sie sagt nur: „Lade mir getJob(id).“ Den Rest erledigt useAsync.
+
+2. Der Hook: warten, ohne einzufrieren
+
+Datei: src/hooks/useAsync.js
+
+js
+export function useAsync(fn, deps = []) {
+  const [state, setState] = useState({ data: null, error: null, loading: true });
+  const run = useCallback(fn, deps);
+
+  const reload = useCallback(async () => {
+    setState((s) => ({ ...s, loading: true }));
+    try {
+      const data = await run();
+      setState({ data, error: null, loading: false });
+    } catch (error) {
+      setState({ data: null, error, loading: false });
+    }
+  }, [run]);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  return { ...state, reload };
+}
+
+Konzept 1: Eigener Hook. Ein Hook ist eine Funktion, die mit use beginnt und selbst Hooks wie useState benutzt. Hier steckt die Lade-Logik einmal drin, und jede Seite nutzt sie. Ohne den Hook stünde derselbe Code in 13 Seiten.
+
+Konzept 2: async / await und Promises. Eine Anfrage an einen Server dauert. JavaScript darf in der Zeit nicht stehen bleiben, sonst friert die Seite ein. Deshalb gibt run() sofort ein Promise zurück, ein Versprechen auf ein späteres Ergebnis. Vergleich: die Abholnummer beim Bäcker.
+
+await run() heißt: „Warte hier auf das Ergebnis.“ Nur diese Funktion pausiert, die Seite bleibt bedienbar.
+await geht nur in Funktionen, die mit async markiert sind.
+
+Konzept 3: try / catch. Geht beim Warten etwas schief, etwa weil der Server mit 404 antwortet oder nicht erreichbar ist, springt JavaScript aus dem try-Block direkt in den catch-Block. So landet entweder data oder error im State, nie beides.
+
+Konzept 4: useEffect. Code, der nach dem Zeichnen der Seite laufen soll. Das Laden darf nicht direkt im Komponentenkörper stehen: Dann würde es bei jedem Rendern neu starten, das Ergebnis würde den State ändern, das löst wieder ein Rendern aus, und so weiter, endlos. useEffect startet das Laden einmal und dann nur wieder, wenn sich ein Wert im Array ändert. Bei der Detailseite ist das die id.
+
+Der zeitliche Ablauf beim Öffnen von /jobs/8:
+
+React zeichnet die Seite mit loading: true → Kreisel
+useEffect startet reload() → Anfrage geht los
+… warten …
+Antwort kommt → setState({ data })
+React zeichnet neu → Seite mit Inhalt
+
+useCallback musst Du nicht selbst schreiben können. Es sorgt nur dafür, dass reload nicht bei jedem Rendern als „neue“ Funktion gilt. Sonst würde useEffect in einer Endlosschleife neu laden.
+
+reload wird mit zurückgegeben. Seiten, die etwas ändern, zum Beispiel einen Status setzen, rufen danach reload() auf und holen sich den neuen Stand vom Server.
+
+3. Die API-Schicht: woher kommen die Daten?
+
+Datei: src/api/index.js
+
+js
+export function getJob(id) {
+  return mock.getJob(id);
+  // return request('GET', `/jobs/${id}`);
+}
+
+Konzept: alle Server-Anfragen an einer Stelle. Keine Seite ruft selbst fetch auf. Sie rufen nur Funktionen aus dieser Datei auf: getJob, getJobs, applyToJob usw. Das bringt zwei Vorteile:
+
+Austauschbar: Heute antwortet der Mock, später Dein Server. Umgestellt wird nur hier, eine Zeile pro Funktion. Die Seiten merken nichts.
+Übersicht: Diese Datei ist gleichzeitig die Liste aller Endpunkte, die Dein Backend später können muss. Die genaue Beschreibung steht in API.md.
+4a. Der Mock: ein nachgebauter Server
+
+Datei: src/api/mock.js
+
+js
+export const getJob = (id) => respond((db) => {
+  const job = db.jobs.find((j) => j.id === Number(id) && j.status === 'published');
+  if (!job) throw new ApiError(404, { error: 'Diese Stelle ist nicht (mehr) ausgeschrieben.' });
+  return { job };
+});
+
+Konzept: Der Mock tut so, als wäre er ein Server. Er speichert Daten im Browser (localStorage) und respond() wartet künstlich 250 ms, wie eine echte Netzwerkanfrage. Er antwortet mit genau denselben Daten und Fehlern, die Dein Backend später liefern soll. So konnte das Frontend fertig werden, bevor es ein Backend gibt. Am Ende wird diese Datei gelöscht.
+
+4b. Der echte Weg: fetch
+
+Datei: src/api/http.js, wird ab dem Backend benutzt:
+
+js
+export async function request(method, path, { body, formData } = {}) {
+  ...
+  res = await fetch(`/api${path}`, { method, headers, body: payload, credentials: 'same-origin' });
+  ...
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new ApiError(res.status, data);
+  return data;
+}
+
+Konzept: fetch und JSON.
+
+fetch(adresse, optionen) ist die eingebaute Browser-Funktion, um eine HTTP-Anfrage zu schicken. Sie gibt ein Promise zurück, deshalb await.
+Der Server antwortet mit Text im JSON-Format, zum Beispiel {"job":{"id":8,"title":"…"}}. res.json() macht daraus ein JavaScript-Objekt.
+res.ok ist true bei Statuscode 200–299. Bei allem anderen (404, 422, 500 …) wirft die Funktion einen ApiError. Der landet im catch von useAsync, und die Seite zeigt die Fehlerseite.
+Zusammenfassung Block 1
+Konzept	In einem Satz	Datei
+Drei Zustände	lädt / Fehler / Daten, jede Seite muss alle drei können	JobDetail.jsx
+Eigener Hook	Lade-Logik einmal schreiben, überall nutzen	useAsync.js
+Promise, async/await	auf ein Ergebnis warten, ohne die Seite einzufrieren	useAsync.js, http.js
+try/catch	Fehler beim Warten abfangen	useAsync.js
+useEffect	Laden starten, nachdem die Seite gezeichnet ist	useAsync.js
+API-Schicht	alle Anfragen an einer Stelle, Mock oder Server austauschbar	api/index.js
+fetch und JSON	HTTP-Anfrage schicken, Antwort in ein Objekt umwandeln	http.js
+
+Wenn etwas unklar ist, frag. Sonst schreib „weiter“, dann kommt Block 2: Router, also wie mehrere Seiten mit eigener Adresse funktionieren.
+
+
+
+
+# Frontend-Konzepte auf einen Blick
+
+**Aus dem Vorprojekt bekannt**
+
+| Konzept | Kurz |
+|---|---|
+| Komponente / JSX | Funktion, die Oberfläche zurückgibt |
+| `useState` | Wert merken, bei Änderung neu zeichnen |
+| Props | Daten von oben nach unten weitergeben |
+| Kontrollierte Felder | `value` + `onChange` an den State binden |
+| Validierung | Eingaben prüfen, Fehler am Feld zeigen |
+| Tailwind | Gestaltung über Klassen |
+| Vite | übersetzt JSX, startet den Entwicklungsserver |
+
+**Block 1: Daten laden**
+
+| Konzept | Kurz |
+|---|---|
+| Drei Zustände | lädt / Fehler / Daten |
+| `async` / `await` | auf eine Antwort warten, ohne einzufrieren |
+| `try` / `catch` | Fehler beim Warten abfangen |
+| `useEffect` | Code nach dem Zeichnen ausführen, z. B. laden |
+| Eigener Hook (`useAsync`) | Lade-Logik einmal schreiben, überall nutzen |
+| API | Speisekarte: was man beim Server bestellen kann |
+| API-Schicht (`api/index.js`) | alle Anfragen an einer Stelle |
+| `fetch` / JSON | Kellner zum Server / Format der Antwort |
+| Mock | Attrappe des Servers |
+
+**Block 2: Mehrere Seiten**
+
+| Konzept | Kurz |
+|---|---|
+| React Router | Adresse → Seite |
+| Platzhalter `:id` | eine Seite für viele Inhalte |
+| Layout + `Outlet` | gemeinsamer Rahmen, Seite in der Mitte |
+| `Link` / `NavLink` | Seitenwechsel ohne Neuladen |
+| `useParams` | Nummer aus der Adresse lesen |
+| `useSearchParams` | Filter in der Adresse |
+| `useNavigate` | Seite per Code wechseln |
+
+**Block 3: Formular und Login**
+
+| Konzept | Kurz |
+|---|---|
+| `FormData` | Paket aus Feldern und Datei |
+| `useRef` | direkter Zugriff auf das Datei-Feld |
+| Doppelte Prüfung | Browser für Komfort, Server für Sicherheit |
+| Context | schwarzes Brett: wer ist eingeloggt? |
+| `RequireAuth` | Schild „nur für Personal“; das Schloss ist der Server |
+
+**Fachbegriff fürs Ganze:** Client-Server-Architektur, Single-Page-Application mit REST-API.

@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+/* Eigene Farben: als Tailwind-Klassen nutzbar, z. B. bg-brand-600, text-brand-700, bg-accent-400 */
+@theme {
+  --color-brand-50: #eef7f6;
+  --color-brand-100: #d5ecea;
+  --color-brand-200: #a9d8d4;
+  --color-brand-500: #16857f;
+  --color-brand-600: #0f6e6a;
+  --color-brand-700: #0b5754;
+  --color-brand-800: #0a4644;
+  --color-accent-400: #f2a900;
+  --color-ink: #17212b;
+}
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-ink antialiased;
+  }
+  /* Sichtbarer Tastaturfokus überall */
+  :focus-visible {
+    @apply outline-3 outline-offset-2 outline-accent-400;
+  }
+}

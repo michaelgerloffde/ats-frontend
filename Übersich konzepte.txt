@@ -241,3 +241,28 @@ SELECT DISTINCT liefert jeden Bereich und Ort nur einmal. Damit werden die Filte
 .map() wandelt die Zeilen-Objekte in eine einfache Liste von Werten um.
 Die Antwortform blieb gleich, deshalb musste das Frontend nicht geändert werden.
 Ergebnis: 4 von 5 Stellen sichtbar. Der Entwurf wird korrekt ausgeblendet.
+
+Etappe 3: Suche, Filter und Seitenaufteilung
+Für Dein Logbuch
+req.query enthält die Werte aus der URL nach dem ?. Darüber kommen die Filter vom Frontend an.
+Alle Eingaben werden im Server abgesichert:
+String() macht einen Text daraus.
+trim() entfernt Leerzeichen.
+Die Seitenzahl wird zur Zahl und ist mindestens 1.
+Die WHERE-Bedingung wird aus einer Liste zusammengebaut. Ein Filter kommt nur dazu, wenn er ausgefüllt ist.
+Im SQL-Text stehen nur eigene, feste Bedingungen. Nutzereingaben gehen immer über ?-Platzhalter in params.
+Die Suche nutzt LIKE mit %…% über Titel, Bereich und Beschreibung.
+COUNT(*) liefert die Gesamtzahl der Treffer. Daraus werden die Seiten berechnet (Math.ceil).
+LIMIT und OFFSET holen nur die Stellen der aktuellen Seite.
+.get() liefert eine Zeile, .all() eine Liste von Zeilen.
+Die Auswahlfelder bleiben ungefiltert, damit man den Filter wechseln kann.
+Test mit ' OR 1=1 -- ergab 0 Treffer und keinen Fehler. Die Prepared Statements schützen also vor SQL-Injection.
+Pagination getestet, indem PER_PAGE vorübergehend auf 2 gesetzt wurde.
+
+_____________________________________
+
+B3 Detailseite und startseite zeigen echte daten
+E1 Detailroute /api/jobs/:id
+Worum es geht: Klickst Du in der Liste auf eine Stelle, ruft das Frontend getJob(id) auf, zum Beispiel für /api/jobs/3. Der Server soll genau diese eine Stelle mit allen Texten liefern. Gibt es die Stelle nicht, antwortet er mit 404.
+
+Im Frontend kennst Du das schon: /jobs/:id mit useParams() in JobDetail.jsx. Jetzt baust Du dasselbe Prinzip im Server.

@@ -75,7 +75,20 @@ app.get('/api/jobs', (req, res) => {
 
 
 
+app.get('/api/jobs/:id', (req, res) => {
+  const job = db.prepare(`
+    SELECT id, title, department, location, employment_type,
+           description, requirements, status, created_at, updated_at
+    FROM jobs
+    WHERE id = ? AND status = 'published'
+  `).get(req.params.id);
 
+  if (!job) {
+    return res.status(404).json({ error: 'Diese Stelle gibt es nicht oder sie ist nicht mehr ausgeschrieben.' });
+  }
+
+  res.json({ job: job });
+});
 
 
 

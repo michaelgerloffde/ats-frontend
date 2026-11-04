@@ -49,8 +49,8 @@ export function getJobs(filters) {
 
 /** → { job } · 404 */
 export function getJob(id) {
-  return mock.getJob(id);
-  // return request('GET', `/jobs/${id}`);
+  //return mock.getJob(id);
+  return request('GET', `/jobs/${id}`);
 }
 
 /** formData: Formularfelder + Datei "cv" → 201 { token } · 422 { errors } · 404 */

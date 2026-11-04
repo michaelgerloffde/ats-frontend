@@ -43,8 +43,8 @@ export function getHome() {
 
 /** filters: { q, department, location, type, page } → { jobs, pagination, options } */
 export function getJobs(filters) {
-  return mock.getJobs(filters);
-  // return request('GET', `/jobs?${new URLSearchParams(filters)}`);
+  //return mock.getJobs(filters);
+  return request('GET', `/jobs?${new URLSearchParams(filters)}`);
 }
 
 /** → { job } · 404 */

@@ -187,3 +187,13 @@ Wenn etwas unklar ist, frag. Sonst schreib „weiter“, dann kommt Block 2: Rou
 | `RequireAuth` | Schild „nur für Personal“; das Schloss ist der Server |
 
 **Fachbegriff fürs Ganze:** Client-Server-Architektur, Single-Page-Application mit REST-API.
+#
+
+
+
+
+
+
+
+
+Was ist ein fetch schicken? und wie weiss vite das an den server geschickt werden muss? vite macht doch das frontend 

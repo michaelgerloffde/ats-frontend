@@ -225,3 +225,19 @@ PRIMARY KEY AUTOINCREMENT heißt, die Datenbank vergibt die id selbst.
 Die Spaltennamen entsprechen den Feldnamen in API.md (snake_case).
 Prepared Statements mit ? als Platzhalter: Werte werden nie als SQL gelesen. Das schützt vor SQL-Injection.
 Mit npm run init-db kann jede:r die Datenbank selbst erzeugen.
+
+-----
+B2 E2 /api/jobs auf Datenbank umgestellt
+
+Für Dein Logbuch
+index.js importiert die Verbindung aus db.js.
+Die Testroute /api/hallo ist entfernt, damit kein Testcode im Projekt bleibt.
+/api/jobs fragt jetzt die Datenbank ab, statt feste Daten zurückzugeben.
+db.prepare(sql).all() führt eine Abfrage aus und liefert alle Zeilen als Liste von Objekten.
+SELECT holt nur die Spalten, die die Liste braucht. Die langen Texte bleiben für die Detailseite.
+WHERE status = 'published' filtert im Server. Entwürfe verlassen den Server nicht.
+ORDER BY created_at DESC, id DESC zeigt die neuesten Stellen zuerst, mit fester Reihenfolge.
+SELECT DISTINCT liefert jeden Bereich und Ort nur einmal. Damit werden die Filter-Auswahlfelder gefüllt.
+.map() wandelt die Zeilen-Objekte in eine einfache Liste von Werten um.
+Die Antwortform blieb gleich, deshalb musste das Frontend nicht geändert werden.
+Ergebnis: 4 von 5 Stellen sichtbar. Der Entwurf wird korrekt ausgeblendet.

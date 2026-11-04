@@ -1,40 +1,33 @@
 import express from 'express';
+import { db } from './db.js';
 
 const app = express();
 
-app.get('/api/hallo', (req, res) => {
-  res.json({ nachricht: 'Hallo vom Server' });
-});
 
 app.get('/api/jobs', (req, res) => {
-  const jobs = [
-    {
-      id: 1,
-      title: 'Disponent:in Straßenverkehr (m/w/d)',
-      department: 'Disposition',
-      location: 'Hamburg',
-      employment_type: 'Vollzeit',
-      status: 'published',
-      created_at: '2026-10-20T08:00:00.000Z',
-    },
-    {
-      id: 2,
-      title: 'Lagerlogistiker:in (m/w/d)',
-      department: 'Lager',
-      location: 'Bremen',
-      employment_type: 'Teilzeit',
-      status: 'published',
-      created_at: '2026-10-25T08:00:00.000Z',
-    },
-  ];
+  const jobs = db.prepare(`
+    SELECT id, title, department, location, employment_type, status, created_at
+    FROM jobs
+    WHERE status = 'published'
+    ORDER BY created_at DESC, id DESC
+  `).all();
+
+  const departments = db.prepare(`
+    SELECT DISTINCT department FROM jobs
+    WHERE status = 'published'
+    ORDER BY department
+  `).all().map((row) => row.department);
+
+  const locations = db.prepare(`
+    SELECT DISTINCT location FROM jobs
+    WHERE status = 'published'
+    ORDER BY location
+  `).all().map((row) => row.location);
 
   res.json({
     jobs: jobs,
     pagination: { page: 1, pages: 1, total: jobs.length },
-    options: {
-      departments: ['Disposition', 'Lager'],
-      locations: ['Bremen', 'Hamburg'],
-    },
+    options: { departments: departments, locations: locations },
   });
 });
 

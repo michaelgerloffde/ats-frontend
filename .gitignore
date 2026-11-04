@@ -1,3 +1,6 @@
 node_modules/
 dist/
 .DS_Store
+server/data/
+logbuch.txt
+Übersicht konzepte.txt

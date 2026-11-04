@@ -197,3 +197,31 @@ Wenn etwas unklar ist, frag. Sonst schreib „weiter“, dann kommt Block 2: Rou
 
 
 Was ist ein fetch schicken? und wie weiss vite das an den server geschickt werden muss? vite macht doch das frontend 
+
+
+Für Dein Logbuch: B1 komplett
+Ordner server/ angelegt, mit npm init. In der package.json stehen "type": "module" und ein dev-Skript mit node --watch.
+Express installiert, um einen Server mit Routen zu bauen.
+app.get(pfad, …) legt eine Route an. Der Server antwortet nur auf Pfade, die so festgelegt sind.
+app.listen(3000) startet den Server. Das Programm läuft dann weiter und wartet auf Anfragen.
+Route GET /api/jobs liefert JSON in der Form aus API.md: jobs, pagination, options. Die Daten stehen noch fest im Code.
+Die Route zuerst direkt im Browser getestet (localhost:3000/api/jobs), danach über das Frontend.
+In src/api/index.js nur getJobs vom Mock auf request() umgestellt. Die Seiten blieben unverändert.
+Der Weg einer Anfrage: Seite → api/index.js → request() → fetch() → Vite (5173) → Proxy → Express (3000).
+Ergebnis: /jobs zeigt „2 Stellen gefunden“ mit den Daten vom eigenen Server.
+Projekt als privates GitHub-Repository angelegt. Nach jedem Schritt gibt es einen Commit.
+
+
+B2E1 DB anlegen
+Wir nutzen SQLite über das in Node eingebaute Modul node:sqlite. Die ganze Datenbank ist eine Datei (server/data/ats.db), ein eigener Datenbank-Server ist nicht nötig.
+server/data/ steht in .gitignore. Die Datenbank lässt sich neu erzeugen, und später liegen darin personenbezogene Daten.
+db.js öffnet die Verbindung einmal zentral. Andere Dateien importieren db von dort.
+init-db.js legt die Tabelle jobs an und füllt sie mit Startdaten. Durch DROP TABLE IF EXISTS ist das Skript beliebig oft ausführbar.
+Spalten mit Typ und Regeln:
+NOT NULL heißt Pflichtfeld.
+CHECK erlaubt nur bestimmte Werte.
+DEFAULT ist ein Standardwert.
+PRIMARY KEY AUTOINCREMENT heißt, die Datenbank vergibt die id selbst.
+Die Spaltennamen entsprechen den Feldnamen in API.md (snake_case).
+Prepared Statements mit ? als Platzhalter: Werte werden nie als SQL gelesen. Das schützt vor SQL-Injection.
+Mit npm run init-db kann jede:r die Datenbank selbst erzeugen.

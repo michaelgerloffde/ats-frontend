@@ -73,7 +73,7 @@ app.get('/api/jobs', (req, res) => {
 
 
 
-
+// Detailroute
 
 app.get('/api/jobs/:id', (req, res) => {
   const job = db.prepare(`
@@ -91,8 +91,32 @@ app.get('/api/jobs/:id', (req, res) => {
 });
 
 
+// Startseiten route 
+app.get('/api/home', (req, res) => {
+  const jobs = db.prepare(`
+    SELECT id, title, department, location, employment_type, status, created_at
+    FROM jobs
+    WHERE status = 'published'
+    ORDER BY created_at DESC, id DESC
+    LIMIT 3
+  `).all();
 
+  const openCount = db.prepare(`
+    SELECT COUNT(*) AS n
+    FROM jobs
+    WHERE status = 'published'
+  `).get().n;
 
+  const departments = db.prepare(`
+    SELECT department, COUNT(*) AS n
+    FROM jobs
+    WHERE status = 'published'
+    GROUP BY department
+    ORDER BY department
+  `).all();
+
+  res.json({ jobs: jobs, openCount: openCount, departments: departments });
+});
 
 
 

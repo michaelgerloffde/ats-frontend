@@ -266,3 +266,21 @@ E1 Detailroute /api/jobs/:id
 Worum es geht: Klickst Du in der Liste auf eine Stelle, ruft das Frontend getJob(id) auf, zum Beispiel für /api/jobs/3. Der Server soll genau diese eine Stelle mit allen Texten liefern. Gibt es die Stelle nicht, antwortet er mit 404.
 
 Im Frontend kennst Du das schon: /jobs/:id mit useParams() in JobDetail.jsx. Jetzt baust Du dasselbe Prinzip im Server.
+
+Für Dein Logbuch
+Neue Route GET /api/jobs/:id. :id ist ein Platzhalter im Pfad, der Wert steht in req.params.id.
+req.params ist ein Teil des Pfads (welche Ressource gemeint ist). req.query steht nach dem ? (Filter, Seite).
+Die Detailroute liefert auch description und requirements. Die Liste lässt diese langen Texte weg.
+Die id aus der URL geht über einen ?-Platzhalter, weil sie eine Eingabe von außen ist.
+status = 'published' in der Abfrage verhindert, dass man Entwürfe über die URL lesen kann.
+Wird nichts gefunden, antwortet der Server mit res.status(404).json({ error }). Die Fehlerform kommt aus API.md.
+return beim Fehler beendet die Route. Pro Anfrage gibt es nur eine Antwort.
+404 auch für Entwürfe: Der Server verrät nicht, ob es die Stelle gibt.
+Im Frontend wird aus dem 404 ein ApiError. useAsync fängt ihn ab, und ErrorState zeigt „Nicht gefunden“.
+Getestet mit einer gültigen id, einem Entwurf, einer unbekannten id und einer ungültigen id.
+
+Etappe 2: Startseiten-Route /api/home
+Worum es geht: Die Startseite zeigt drei Dinge: die 3 neuesten Stellen, die Anzahl aller offenen Stellen und die Bereiche mit der Zahl ihrer Stellen. Laut API.md liefert der Server alles in einer Antwort:
+
+{ jobs: [3 neueste], openCount: Zahl, departments: [{ department, n }] }
+

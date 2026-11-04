@@ -37,8 +37,8 @@ export function logout() {
 
 /** → { jobs: Job[3], openCount, departments: [{ department, n }] } */
 export function getHome() {
-  return mock.getHome();
-  // return request('GET', '/home');
+  //return mock.getHome();
+  return request('GET', '/home');
 }
 
 /** filters: { q, department, location, type, page } → { jobs, pagination, options } */

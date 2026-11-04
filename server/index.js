@@ -3,15 +3,55 @@ import { db } from './db.js';
 
 const app = express();
 
+const PER_PAGE = 10;
 
 app.get('/api/jobs', (req, res) => {
+  // 1. Filter aus der URL lesen
+  const q = String(req.query.q ?? '').trim();
+  const department = String(req.query.department ?? '');
+  const location = String(req.query.location ?? '');
+  const type = String(req.query.type ?? '');
+  const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+
+  // 2. Bedingungen und Werte sammeln
+  const conditions = ["status = 'published'"];
+  const params = [];
+
+  if (q) {
+    conditions.push('(title LIKE ? OR department LIKE ? OR description LIKE ?)');
+    const like = `%${q}%`;
+    params.push(like, like, like);
+  }
+  if (department) {
+    conditions.push('department = ?');
+    params.push(department);
+  }
+  if (location) {
+    conditions.push('location = ?');
+    params.push(location);
+  }
+  if (type) {
+    conditions.push('employment_type = ?');
+    params.push(type);
+  }
+
+  const where = 'WHERE ' + conditions.join(' AND ');
+
+  // 3. Treffer zählen und Seiten berechnen
+  const total = db.prepare(`SELECT COUNT(*) AS n FROM jobs ${where}`).get(...params).n;
+  const pages = Math.max(1, Math.ceil(total / PER_PAGE));
+  const offset = (page - 1) * PER_PAGE;
+
+  // 4. Nur die Stellen der aktuellen Seite holen
   const jobs = db.prepare(`
     SELECT id, title, department, location, employment_type, status, created_at
     FROM jobs
-    WHERE status = 'published'
+    ${where}
     ORDER BY created_at DESC, id DESC
-  `).all();
+    LIMIT ? OFFSET ?
+  `).all(...params, PER_PAGE, offset);
 
+  // 5. Auswahl für die Filterfelder (alle veröffentlichten, ungefiltert)
   const departments = db.prepare(`
     SELECT DISTINCT department FROM jobs
     WHERE status = 'published'
@@ -26,11 +66,10 @@ app.get('/api/jobs', (req, res) => {
 
   res.json({
     jobs: jobs,
-    pagination: { page: 1, pages: 1, total: jobs.length },
+    pagination: { page: page, pages: pages, total: total },
     options: { departments: departments, locations: locations },
   });
 });
-
 
 
 

@@ -284,3 +284,38 @@ Worum es geht: Die Startseite zeigt drei Dinge: die 3 neuesten Stellen, die Anza
 
 { jobs: [3 neueste], openCount: Zahl, departments: [{ department, n }] }
 
+Für Dein Logbuch
+Neue Route GET /api/home liefert alle Daten der Startseite in einer Antwort.
+Eine Route statt drei: Das ist eine Anfrage statt drei, und die Seite lädt schneller.
+LIMIT 3 holt nur die 3 neuesten Stellen.
+COUNT(*) zählt alle veröffentlichten Stellen (openCount).
+GROUP BY department mit COUNT(*) zählt die Stellen pro Bereich.
+DISTINCT liefert Werte ohne Anzahl. GROUP BY mit COUNT liefert Werte mit Anzahl.
+AS n benennt die Spalte so, wie API.md sie verlangt. Deshalb ist kein Umformen mit .map() nötig.
+Zählen und Gruppieren macht die Datenbank. Das ist effizienter als alles zu laden und in JavaScript zu zählen.
+Entwürfe werden überall mit WHERE status = 'published' ausgeschlossen.
+Die Links auf der Startseite nutzen den Filter aus B2 (/jobs?department=…).
+
+
+
+B4 Bewerbung speichern
+E1: Server in Dateien aufteilen 
+-> alles noch in server index.js
+-> viele Routen kommen dazu
+Zielstruktur:
+server/
+├── index.js          startet den Server
+├── app.js            baut die Express-App: Middleware + Routen
+├── db.js             Datenbankverbindung (bleibt, wie sie ist)
+├── routes/
+│   └── public.js     öffentliche Routen (/jobs, /jobs/:id, /home)
+└── scripts/
+    └── init-db.js    Einrichtungsskript (verschoben)
+
+Für Dein Logbuch
+Der Server ist nach der Architektur aus E6 aufgeteilt: index.js (Start), app.js (App mit Middleware), routes/public.js (öffentliche Routen), db.js, scripts/.
+Router() bündelt Routen zu einer Gruppe. Mit app.use('/api', …) wird sie unter /api eingehängt, /api steht damit nur an einer Stelle.
+app.use(...) fügt Middleware hinzu, die bei jeder Anfrage läuft. Die erste ist express.json() (liest JSON in req.body).
+app.js baut die App, index.js startet sie. So können Tests die App nutzen, ohne einen Port zu belegen (E9).
+Öffentliche und interne Routen kommen in getrennte Dateien, damit die Login-Prüfung bei Admin-Routen nicht vergessen werden kann (E7).
+Das ist eine reine Umstrukturierung ohne neue Funktion. Geprüft wurde, dass alle Routen und das Frontend unverändert funktionieren.

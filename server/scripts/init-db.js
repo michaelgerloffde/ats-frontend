@@ -1,4 +1,4 @@
-import { db } from './db.js';
+import { db } from '../db.js';
 
 // Tabelle neu anlegen (alte wird gelöscht)
 db.exec(`

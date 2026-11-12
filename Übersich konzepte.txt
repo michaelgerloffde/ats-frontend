@@ -319,3 +319,22 @@ app.use(...) fügt Middleware hinzu, die bei jeder Anfrage läuft. Die erste ist
 app.js baut die App, index.js startet sie. So können Tests die App nutzen, ohne einen Port zu belegen (E9).
 Öffentliche und interne Routen kommen in getrennte Dateien, damit die Login-Prüfung bei Admin-Routen nicht vergessen werden kann (E7).
 Das ist eine reine Umstrukturierung ohne neue Funktion. Geprüft wurde, dass alle Routen und das Frontend unverändert funktionieren.
+
+E2: Tabellen nach dem ER-Diagramm anlegen 
+Worum es geht: Bisher gibt es nur die Tabelle jobs. 
+Jetzt kommen alle Tabellen aus Deinem ER-Diagramm (E2) dazu, 
+mit den Regeln, die Du in E2–E5 festgelegt hast. Ich habe die Dateien vorher getestet. 
+Sie funktionieren.
+
+Für Dein Logbuch
+Alle 7 Tabellen aus dem ER-Diagramm (E2) sind angelegt.
+PRAGMA foreign_keys = ON in db.js: SQLite prüft Fremdschlüssel sonst nicht. Die Einstellung gilt für die gemeinsame Verbindung.
+Fremdschlüssel (REFERENCES) sichern die Beziehungen.
+Löschregeln aus E2 direkt in der Datenbank:
+ohne Zusatz: Löschen wird verhindert (Stellen mit Bewerbungen, Zugänge)
+ON DELETE CASCADE: Anhänge, Notizen und Verlauf gehen mit der Bewerbung
+UNIQUE für E-Mail der Nutzer und Status-Token. CHECK für Bewertung 1–5, Anschreiben ≤ 5.000 Zeichen, PDF ≤ 5 MB, Notiz 1–2.000 Zeichen.
+Die Regeln stehen doppelt: Der Server gibt verständliche Fehler (422), die Datenbank ist die letzte Sicherung.
+Indizes auf häufig gesuchten Spalten (Status, Stelle, Löschdatum) für die Performance (E6).
+Gelöscht wird in umgekehrter Reihenfolge der Verweise.
+Die Status-Schlüssel sind englisch, wie in API.md und im Frontend.

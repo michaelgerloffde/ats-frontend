@@ -53,10 +53,9 @@ export function getJob(id) {
   return request('GET', `/jobs/${id}`);
 }
 
-/** formData: Formularfelder + Datei "cv" → 201 { token } · 422 { errors } · 404 */
 export function applyToJob(id, formData) {
-  return mock.applyToJob(id, formData);
-  // return request('POST', `/jobs/${id}/apply`, { formData });
+  // return mock.applyToJob(id, formData);
+  return request('POST', `/jobs/${id}/apply`, { formData });
 }
 
 /** → { application: { job_title, status, delete_after, created_at }, history } · 404 */

@@ -1,8 +1,16 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { db } from '../db.js';
+import { validateApplication, MAX_FILE_BYTES } from '../lib/validation.js';
 
 const router = Router();
 const PER_PAGE = 10;
+
+// Upload-Einstellungen: Datei erst im Arbeitsspeicher halten, max. 5 MB, 1 Datei, 20 Felder
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_FILE_BYTES, files: 1, fields: 20 },
+});
 
 router.get('/jobs', (req, res) => {
   const q = String(req.query.q ?? '').trim();
@@ -98,6 +106,47 @@ router.get('/home', (req, res) => {
   `).all();
 
   res.json({ jobs: jobs, openCount: openCount, departments: departments });
+});
+
+// POST /api/jobs/:id/apply – Bewerbung empfangen und prüfen (Speichern folgt in Etappe 4)
+// upload.single('cv') liest das Feld "cv" als Datei nach req.file, die Textfelder nach req.body
+router.post('/jobs/:id/apply', upload.single('cv'), (req, res) => {
+  // Honeypot: Menschen sehen das Feld nicht, Bots füllen es aus → so tun, als ob es geklappt hätte
+  if (req.body.website) {
+    return res.status(200).json({ ok: true });
+  }
+
+  // 1. Gibt es die Stelle und ist sie veröffentlicht? Sonst 404
+  const job = db.prepare(`SELECT id FROM jobs WHERE id = ? AND status = 'published'`).get(req.params.id);
+  if (!job) {
+    return res.status(404).json({ error: 'Diese Stelle gibt es nicht oder sie ist nicht mehr ausgeschrieben.' });
+  }
+
+  // 2. Felder und PDF nach den Regeln aus lib/validation.js prüfen
+  const { errors, values } = validateApplication(req.body, req.file);
+
+  // 3. Nur wenn alles gültig ist: laufende Bewerbung mit gleicher E-Mail auf diese Stelle?
+  //    JOIN verbindet Bewerbung (applications) mit Person (candidates), weil die E-Mail bei der Person steht
+  if (Object.keys(errors).length === 0) {
+    const duplicate = db.prepare(`
+      SELECT 1
+      FROM applications a
+      JOIN candidates c ON c.id = a.candidate_id
+      WHERE a.job_id = ? AND c.email = ? AND a.status NOT IN ('hired', 'rejected')
+    `).get(job.id, values.email);
+
+    if (duplicate) {
+      errors.email = 'Mit dieser E-Mail-Adresse gibt es schon eine laufende Bewerbung auf diese Stelle.';
+    }
+  }
+
+  // 4. Fehler gefunden? → 422 mit einem Text pro Feld (das Frontend zeigt sie unter den Feldern)
+  if (Object.keys(errors).length > 0) {
+    return res.status(422).json({ errors });
+  }
+
+  // Vorläufig: 501 = "noch nicht umgesetzt". Wird in Etappe 4 durch das Speichern ersetzt
+  res.status(501).json({ error: 'Die Prüfung war erfolgreich. Das Speichern kommt in Etappe 4.' });
 });
 
 export default router;

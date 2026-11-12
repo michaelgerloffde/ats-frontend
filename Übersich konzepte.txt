@@ -338,3 +338,21 @@ Die Regeln stehen doppelt: Der Server gibt verständliche Fehler (422), die Date
 Indizes auf häufig gesuchten Spalten (Status, Stelle, Löschdatum) für die Performance (E6).
 Gelöscht wird in umgekehrter Reihenfolge der Verweise.
 Die Status-Schlüssel sind englisch, wie in API.md und im Frontend.
+
+E3: Bewerbung empfangen und prüfen 
+Worum es geht: Das Formular schickt die Bewerbung an POST /api/jobs/:id/apply, zusammen mit der PDF. Der Server prüft alles, was Du in E2, E5 und E7 festgelegt hast. Ist etwas falsch, antwortet er mit 422 und einem Fehlertext pro Feld. Gespeichert wird noch nicht, das kommt in Etappe 4.
+Prüfregeln:
+
+Was: Eine Funktion bekommt die Formularfelder und die Datei. Sie gibt zwei Dinge zurück:
+errors: ein Fehlertext pro falschem Feld
+values: die bereinigten Werte (ohne Leerzeichen am Rand, E-Mail klein geschrieben, leeres Telefon als null)
+Die Regeln sind genau die aus Deinem Konzept:
+Name 1–100 Zeichen
+gültige E-Mail
+Telefon optional
+Anschreiben Pflicht, höchstens 5.000 Zeichen (E2)
+Bestätigung der Datenschutzhinweise (E5)
+PDF Pflicht
+Muster (EMAIL_PATTERN): Ein Muster beschreibt, wie ein gültiger Wert aussieht. Bei der E-Mail heißt es: „Zeichen, dann @, dann Zeichen, dann Punkt, dann Zeichen“. .test(email) prüft, ob der Wert dazu passt.
+isPdf: prüft, ob die ersten 5 Bytes der Datei %PDF- lauten. So beginnt jede echte PDF. Die Dateiendung allein sagt nichts, man kann jede Datei in .pdf umbenennen (E7, OWASP File Upload).
+Warum eigene Datei: Die Regeln lassen sich so einzeln testen, ohne Server. Das ist der Komponententest aus E9.

@@ -356,3 +356,63 @@ PDF Pflicht
 Muster (EMAIL_PATTERN): Ein Muster beschreibt, wie ein gültiger Wert aussieht. Bei der E-Mail heißt es: „Zeichen, dann @, dann Zeichen, dann Punkt, dann Zeichen“. .test(email) prüft, ob der Wert dazu passt.
 isPdf: prüft, ob die ersten 5 Bytes der Datei %PDF- lauten. So beginnt jede echte PDF. Die Dateiendung allein sagt nichts, man kann jede Datei in .pdf umbenennen (E7, OWASP File Upload).
 Warum eigene Datei: Die Regeln lassen sich so einzeln testen, ohne Server. Das ist der Komponententest aus E9.
+
+B4 Etappe 3: Bewerbung empfangen und serverseitig prüfen
+
+Gebaut:
+- multer installiert: Express kann Formulare mit Datei (multipart/form-data) allein nicht lesen.
+- server/lib/validation.js angelegt: alle Prüfregeln an einer Stelle, später einzeln testbar.
+  Regeln: Vor- und Nachname 1-100 Zeichen, gültige E-Mail, Telefon optional,
+  Anschreiben Pflicht (max. 5.000 Zeichen), Haken bei Datenschutzhinweisen,
+  PDF Pflicht und echt (beginnt mit %PDF-, erkannt am Inhalt, nicht an der Endung).
+- Route POST /api/jobs/:id/apply in routes/public.js: erste Route, die Daten annimmt.
+- Fehlerbehandlung am Ende von app.js: Datei zu groß -> 422 mit Meldung,
+  alles andere -> 500 ohne Details (Details nur im Server-Terminal).
+- Frontend: applyToJob schickt an den echten Server statt an den Mock.
+- Apply.jsx an das Konzept angepasst: Anschreiben Pflicht (E2), Talentpool entfernt (Won't, E1/E2),
+  "Datenschutzhinweise gelesen" statt Einwilligung (Art. 6 Abs. 1 lit. b, E5).
+
+Ablauf beim Absenden:
+1. Browser prüft kurz und zeigt Fehler sofort (nur Komfort)
+2. Browser schickt Textfelder und PDF als ein Paket per POST
+3. multer packt aus: Text nach req.body, PDF nach req.file (im Arbeitsspeicher, max. 5 MB)
+4. Bot-Falle: verstecktes Feld "website" ausgefüllt -> "ok", sonst nichts
+5. Stelle nicht vorhanden oder nicht veröffentlicht -> 404
+6. Regeln prüfen (validation.js)
+7. Duplikat prüfen: laufende Bewerbung mit derselben E-Mail auf dieselbe Stelle
+8. Fehler -> 422 mit allen Fehlertexten; alles gültig -> vorläufig 501
+9. Unerwartete Fehler -> Fehlerbehandlung in app.js
+
+Warum doppelt prüfen:
+Browser für den Komfort, Server für die Sicherheit. Den Browser kann man umgehen.
+
+Getestet:
+- Browser: Formular abgeschickt, 501-Meldung erscheint -> Weg Browser -> Server -> Antwort funktioniert.
+- curl (am Browser vorbei): leere Felder -> alle Fehler; falsche PDF -> abgelehnt;
+  zu große Datei -> abgelehnt; nicht vorhandene Stelle -> 404.
+  -> Der Server lehnt ungültige Daten auch ohne Browser ab.
+
+Commit: "Bewerbung wird empfangen und serverseitig geprüft"
+
+
+
+B4 Etappe 4: Bewerbung speichern
+
+Gebaut (routes/public.js):
+- Upload-Ordner server/data/uploads (über .gitignore nicht im Repository).
+- Statt 501 wird gespeichert, in einer Transaktion:
+  candidates -> applications -> status_history (null -> new) -> attachments -> PDF auf Festplatte.
+- Status-Token: 48 zufällige Zeichen (crypto), nicht erratbar (E3).
+- PDF-Dateiname zufällig, nicht der Originalname: nicht erratbar, kein Überschreiben.
+- privacy_ack_at = Zeitpunkt "Datenschutzhinweise gelesen" als Nachweis (E5).
+- Antwort 201 mit Token.
+
+Warum Transaktion:
+Die Einträge gehören zusammen. Bei einem Fehler nimmt ROLLBACK alles zurück. Keine kaputten Daten.
+
+Getestet:
+- Bewerbung im Browser -> Weiterleitung auf /status/<token>
+- PDF liegt mit zufälligem Namen in server/data/uploads
+- Zweite Bewerbung mit derselben E-Mail auf dieselbe Stelle -> Fehler am E-Mail-Feld
+
+Commit: "Bewerbung wird gespeichert"

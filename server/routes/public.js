@@ -10,8 +10,8 @@ import { validateApplication, MAX_FILE_BYTES } from "../lib/validation.js";
 
 const router = Router();
 
-// Ordner für hochgeladene PDFs (wird beim Start angelegt, falls er fehlt)
-const UPLOAD_DIR = path.join("data", "uploads");
+// Ordner für hochgeladene PDFs: normal data/uploads, in Tests ein anderer (über UPLOAD_DIR)
+const UPLOAD_DIR = process.env.UPLOAD_DIR ?? path.join('data', 'uploads');
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const PER_PAGE = 10;

@@ -416,3 +416,136 @@ Getestet:
 - Zweite Bewerbung mit derselben E-Mail auf dieselbe Stelle -> Fehler am E-Mail-Feld
 
 Commit: "Bewerbung wird gespeichert"
+
+
+B4 Etappe 5: Automatische Tests für die Bewerbung
+
+Gebaut:
+- db.js: Datenbankdatei über DB_FILE umschaltbar (Standard data/ats.db).
+- public.js: Upload-Ordner über UPLOAD_DIR umschaltbar (Standard data/uploads).
+  Grund: Tests dürfen die echte Datenbank und echte Uploads nicht verändern.
+- server/test/apply.test.js mit node:test (in Node eingebaut, keine Installation).
+- package.json: Befehl "npm test" (node --test findet alle *.test.js).
+
+Aufbau der Tests:
+- Datenbank nur im Arbeitsspeicher (:memory:), PDFs in einem Temp-Ordner.
+- Server startet auf einem freien Port, stört den laufenden Server nicht.
+- Vor jedem Test werden die Bewerbungsdaten geleert -> Tests unabhängig (Skript S. 101).
+- Getestet über HTTP = Integrationstest: multer, Prüfung, Speichern, Antwort (Skript Kap. 6.3).
+
+Testfälle aus E9:
+- T01 gültige Bewerbung -> 201, Token (48 Zeichen), Status "new", PDF vorhanden
+- T02 Grenzwert Anschreiben: 5.000 Zeichen -> 201, 5.001 Zeichen -> 422
+- T03 umbenannte Nicht-PDF -> 422, nichts gespeichert
+
+Ergebnis: 4 von 4 Tests bestanden.
+
+Commit: "Tests für Bewerbung ergänzt"
+
+
+B4 Etappe 5: Automatische Tests für die Bewerbung
+
+Gebaut:
+- db.js: Datenbankdatei über DB_FILE umschaltbar (Standard data/ats.db).
+- public.js: Upload-Ordner über UPLOAD_DIR umschaltbar (Standard data/uploads).
+  Grund: Tests dürfen die echte Datenbank und echte Uploads nicht verändern.
+- server/test/apply.test.js mit node:test (in Node eingebaut, keine Installation).
+- package.json: Befehl "npm test" (node --test findet alle *.test.js).
+
+Aufbau der Tests:
+- Datenbank nur im Arbeitsspeicher (:memory:), PDFs in einem Temp-Ordner.
+- Server startet auf einem freien Port, stört den laufenden Server nicht.
+- Vor jedem Test werden die Bewerbungsdaten geleert -> Tests unabhängig (Skript S. 101).
+- Getestet über HTTP = Integrationstest: multer, Prüfung, Speichern, Antwort (Skript Kap. 6.3).
+
+Testfälle aus E9:
+- T01 gültige Bewerbung -> 201, Token (48 Zeichen), Status "new", PDF vorhanden
+- T02 Grenzwert Anschreiben: 5.000 Zeichen -> 201, 5.001 Zeichen -> 422
+- T03 umbenannte Nicht-PDF -> 422, nichts gespeichert
+
+Ergebnis: 4 von 4 Tests bestanden.
+
+Commit: "Tests für Bewerbung ergänzt"
+
+# Automatische Tests: das Konzept in Stichpunkten
+
+## Die drei Bausteine
+
+**1. Testdatei: `server/test/apply.test.js`**
+- Beschreibt die Testfälle: was an den Server geschickt wird und was zurückkommen muss.
+- `test('T01: …', …)` ist ein Testfall.
+- `assert.equal(a, b)` prüft „a muss gleich b sein“, sonst fällt der Test durch.
+- Der Name endet auf `.test.js`, daran erkennt Node die Datei als Test.
+
+**2. Befehl festlegen: `server/package.json`**
+- `"test": "node --test"` macht `npm test` zur Abkürzung für `node --test`.
+- Der Dateiname steht dort nicht. Node sucht selbst alle `*.test.js`-Dateien.
+- Neue Testdateien laufen deshalb automatisch mit.
+
+**3. Ausführen im Terminal**
+- Im Ordner `server` den Befehl `npm test` eingeben.
+- Jeder Test zeigt ✔ oder ✖, am Ende stehen die Zahlen: `tests`, `pass`, `fail`.
+
+## Was beim Ausführen passiert
+
+1. Die Testumgebung wird eingestellt: Datenbank nur im Arbeitsspeicher (`:memory:`), PDFs in einen Temp-Ordner.
+2. `init-db.js` legt in der Test-Datenbank die Tabellen und Stellen an.
+3. `before` startet einen eigenen Test-Server auf einem freien Port.
+4. `beforeEach` leert vor jedem Test die Bewerbungsdaten, damit jeder Test frisch startet.
+5. Jeder Test schickt eine Bewerbung über HTTP und prüft Statuscode, Antwort und Datenbank.
+6. `after` stoppt den Server und löscht den Temp-Ordner.
+7. Die echte Datenbank und die echten Uploads bleiben unberührt.
+
+## Bezug zum Skript „Qualitätssicherung im Softwareprozess“
+
+| Was wir gemacht haben | Begriff im Skript | Stelle |
+|---|---|---|
+| Test über HTTP: multer, Prüfung, Speichern, Antwort zusammen | Integrationstest | Kap. 6.3, S. 103 |
+| T01 gültige Bewerbung zum Use Case „Bewerben“ | anwendungsfallbasierter Test | Kap. 5.2, S. 74–76 |
+| T02 Anschreiben 5.000 / 5.001 Zeichen | Grenzwertanalyse | Kap. 5.3, S. 76 ff. |
+| T03 umbenannte Nicht-PDF | ungültige Äquivalenzklasse | Kap. 5.3 |
+| per Befehl jederzeit gleich wiederholbar | Reproduzierbarkeit | Kap. 6.2, S. 101 |
+| frische Daten vor jedem Test | Unabhängigkeit | Kap. 6.2, S. 101 |
+| nach jeder Änderung `npm test`: Ist noch alles in Ordnung? | Regressionsfähigkeit | Kap. 6.2, S. 101 |
+| Testdatenbank statt echter Datenbank | Testumgebung / Testdaten | Kap. 5.1, S. 69 |
+
+## Für den Bericht
+
+Das ist in Deinem Testplan E9 schon vorgesehen: ½ Seite und die Tabelle. Die Kernpunkte, die rein sollten:
+
+- Automatisierung mit `node:test`, ohne zusätzliche Bibliothek, Aufruf mit `npm test`.
+- Integrationstests über HTTP gegen eine Testdatenbank im Arbeitsspeicher.
+- Testfälle nach anwendungsfallbasierter Methode, Grenzwertanalyse und Äquivalenzklassen.
+- Ziel laut Skript: Reproduzierbarkeit, Unabhängigkeit, Regressionsfähigkeit.
+- Die Ergebnisse stehen in der Tabelle der 10 Testfälle.
+
+Formulier den Text im Bericht in Deinen eigenen Worten. Die Stichpunkte und die Tabelle oben sind dafür die Grundlage.
+
+## Für „Übersicht Konzepte“
+
+```
+Konzept: Automatische Tests (node:test)
+
+Bausteine:
+- Testdatei server/test/apply.test.js: beschreibt Testfälle (Eingabe + erwartetes Ergebnis)
+- package.json: "test": "node --test" -> npm test findet alle *.test.js selbst
+- Terminal: cd server, npm test -> ✔/✖ pro Test, Zusammenfassung pass/fail
+
+Ablauf:
+- Testumgebung: DB im Arbeitsspeicher (:memory:), PDFs in Temp-Ordner
+- init-db legt Tabellen und Stellen in der Test-DB an
+- before: eigener Server auf freiem Port
+- beforeEach: Bewerbungsdaten leeren -> jeder Test frisch
+- Tests schicken Bewerbungen über HTTP und prüfen Status, Antwort, Datenbank
+- after: Server stoppen, Temp-Ordner löschen
+- echte DB und echte Uploads bleiben unberührt
+
+Bezug Skript Qualitätssicherung (IQSS01):
+- Integrationstest (Kap. 6.3, S. 103)
+- anwendungsfallbasiert T01 (Kap. 5.2), Grenzwert T02 und Äquivalenzklasse T03 (Kap. 5.3)
+- Reproduzierbarkeit, Unabhängigkeit, Regressionsfähigkeit (Kap. 6.2, S. 101)
+
+Ergebnis B4: T01, T02a, T02b, T03 bestanden (4/4)
+```
+
+Wenn der Commit „Tests für Bewerbung ergänzt“ durch ist, sag Bescheid. Dann trage ich die Ergebnisse in E9 ein, und wir starten **B5**.

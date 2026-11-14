@@ -65,8 +65,7 @@ export function getApplicationStatus(token) {
 
 /** Rückzug = sofortige Löschung → { ok } · 404 */
 export function withdrawApplication(token) {
-  return mock.withdrawApplication(token);
-  // return request('POST', `/status/${token}/withdraw`, { body: { confirm: true } });
+  return request('POST', `/status/${token}/withdraw`, { body: { confirm: true } });
 }
 
 // ---------- Verwaltung: Übersicht und Stellen (Login nötig → sonst 401) ----------

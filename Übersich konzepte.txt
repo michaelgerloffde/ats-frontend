@@ -579,3 +579,7 @@ Getestet:
 - Token verändert -> "Nicht gefunden"
 
 Commit: "Statusseite zeigt Bewerbung aus der Datenbank"
+
+
+E2 Bewerbung zurückziehen 
+Ziel: Klickt der Bewerber auf „Zurückziehen und löschen“, werden sofort alle seine Daten und die PDF gelöscht, so wie Du es entschieden hast. Danach ist der Link ungültig

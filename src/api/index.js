@@ -60,8 +60,7 @@ export function applyToJob(id, formData) {
 
 /** → { application: { job_title, status, delete_after, created_at }, history } · 404 */
 export function getApplicationStatus(token) {
-  return mock.getApplicationStatus(token);
-  // return request('GET', `/status/${token}`);
+  return request('GET', `/status/${token}`);
 }
 
 /** Rückzug = sofortige Löschung → { ok } · 404 */

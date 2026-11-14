@@ -263,4 +263,38 @@ router.post("/jobs/:id/apply", upload.single("cv"), (req, res) => {
   res.status(201).json({ token });
 });
 
+
+
+// Statusseite: Bewerbung über den Token aus dem Status-Link abrufen
+router.get('/status/:token', (req, res) => {
+  const application = db.prepare(`
+    SELECT a.id, a.status, a.delete_after, a.created_at, j.title AS job_title
+    FROM applications a
+    JOIN jobs j ON j.id = a.job_id
+    WHERE a.status_token = ?
+  `).get(req.params.token);
+
+  if (!application) {
+    return res.status(404).json({ error: 'Zu diesem Link gibt es keine Bewerbung (mehr). Möglicherweise wurde sie bereits gelöscht.' });
+  }
+
+  // Verlauf nur mit Stufe und Datum, ohne Recruiter-Namen
+  const history = db.prepare(`
+    SELECT to_status, changed_at
+    FROM status_history
+    WHERE application_id = ?
+    ORDER BY changed_at, id
+  `).all(application.id);
+
+  res.json({
+    application: {
+      job_title: application.job_title,
+      status: application.status,
+      delete_after: application.delete_after,
+      created_at: application.created_at,
+    },
+    history,
+  });
+});
+
 export default router;

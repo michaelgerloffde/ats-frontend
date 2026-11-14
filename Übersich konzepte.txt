@@ -549,3 +549,33 @@ Ergebnis B4: T01, T02a, T02b, T03 bestanden (4/4)
 ```
 
 Wenn der Commit „Tests für Bewerbung ergänzt“ durch ist, sag Bescheid. Dann trage ich die Ergebnisse in E9 ein, und wir starten **B5**.
+
+
+_____________________________________
+
+B5 Satusseite für Bewerber
+E1 Statusseite zeigt die Bewerbung aus der DB
+Ziel: Der Link /status/<token> zeigt die echte Bewerbung und nicht mehr „Nicht gefunden“.
+
+
+B5 Etappe 1: Statusseite zeigt Bewerbung aus der Datenbank
+
+Entscheidung vorab:
+- Zurückziehen = sofort alles löschen (Daten + PDF). Die 6-Monats-Frist gilt hier nicht,
+  weil der Bewerber selbst aktiv geworden ist. (Umsetzung in Etappe 2)
+
+Gebaut:
+- Route GET /api/status/:token in routes/public.js
+- Suche nur über den Token, nicht über die ID -> ohne Link kein Zugriff (E3)
+- JOIN jobs für den Stellentitel
+- Ausgeliefert nur: Titel, Status, Datum, Löschdatum, Verlauf (Stufe + Datum)
+  -> keine Namen, keine Kontaktdaten, keine Notizen, keine Recruiter (Datensparsamkeit, E5)
+- unbekannter oder gelöschter Token -> 404
+- Frontend: getApplicationStatus vom Mock auf den Server umgestellt
+
+Getestet:
+- Bewerbung abschicken -> Statusseite zeigt Titel, Stufe "neu", Verlauf
+- Neu laden -> Bewerbung weiter sichtbar
+- Token verändert -> "Nicht gefunden"
+
+Commit: "Statusseite zeigt Bewerbung aus der Datenbank"

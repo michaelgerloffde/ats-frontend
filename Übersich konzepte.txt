@@ -626,3 +626,23 @@ Getestet:
 - neuer Text im roten Kasten
 
 Commit: "Statusseite an Konzept angepasst"
+
+B5 Etappe 4: Automatische Tests für die Statusseite
+
+Gebaut:
+- server/test/status.test.js (gleicher Aufbau wie apply.test.js)
+- package.json unverändert: node --test findet die neue *.test.js selbst
+
+Testfälle (eigene IDs S01-S04, für den Anhang laut E9):
+- S01 gültiger Token -> 200, Stufe "neu", Verlauf; E-Mail und Name NICHT in der Antwort
+  (prüft Datensparsamkeit E5 automatisch)
+- S02 unbekannter Token -> 404
+- S03 Zurückziehen ohne Bestätigung -> 422, Bewerbung bleibt
+- S04 Zurückziehen mit Bestätigung -> alle 4 Tabellen leer, PDF weg, Link -> 404
+  (Nachweis "Zurückziehen = alles löschen" inkl. ON DELETE CASCADE)
+
+Notiz für B9: Testaufbau ist in beiden Dateien doppelt -> gemeinsame Hilfsdatei.
+
+Ergebnis: 8 von 8 Tests bestanden.
+
+Commit: "Tests für Statusseite ergänzt"

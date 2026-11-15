@@ -26,6 +26,17 @@ export default function Status() {
   const steps = STAGES.filter((s) =>
     s.key === app.status || (current.final ? reached.includes(s.key) : s.key !== 'rejected'));
 
+
+    // Status-Link in die Zwischenablage kopieren
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      toast('Link kopiert.');
+    } catch {
+      toast('Kopieren nicht möglich. Bitte markiere den Link und kopiere ihn von Hand.', 'error');
+    }
+  };
+
   const withdraw = async (e) => {
     e.preventDefault();
     setBusy(true);
@@ -52,6 +63,10 @@ export default function Status() {
             Ein Konto brauchst Du nicht. Behandle den Link wie ein Passwort.
           </p>
           <code className="mt-3 block break-all rounded-md border border-amber-200 bg-white px-3 py-2 text-sm">{window.location.href}</code>
+                    {/* Knopf zum Kopieren des Status-Links */}
+          <Button type="button" variant="secondary" size="sm" onClick={copyLink} className="mt-3">
+            Link kopieren
+          </Button>
         </div>
       )}
 
@@ -83,7 +98,7 @@ export default function Status() {
 
       <section className="mt-10 rounded-xl border border-red-200 bg-red-50 p-5">
         <h2 className="font-bold">Bewerbung zurückziehen</h2>
-        <p className="mt-1 text-slate-700">Du kannst Deine Einwilligung jederzeit widerrufen. Dann löschen wir sofort alle Deine Daten und Unterlagen. Das lässt sich nicht rückgängig machen.</p>
+        <p className="mt-1 text-slate-700">Du kannst Deine Einwilligung jederzeit zurückziehen. Dann löschen wir sofort alle Deine Daten und Unterlagen. Das lässt sich nicht rückgängig machen.</p>
         <form onSubmit={withdraw} className="mt-4 grid gap-3">
           <label className="flex gap-3">
             <input type="checkbox" checked={confirm} onChange={(e) => setConfirm(e.target.checked)} className="mt-1 h-4 w-4 accent-red-700" />

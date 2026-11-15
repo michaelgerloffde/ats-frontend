@@ -1,6 +1,19 @@
 import { db } from '../db.js';
+import { hashPassword, MIN_PASSWORD_LENGTH } from '../lib/password.js';
 
 const NOW = "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))";
+
+// 0. Zugangsdaten für den ersten Admin aus der .env-Datei prüfen (E3/E7), bevor etwas gelöscht wird
+const { ADMIN_NAME = 'Admin', ADMIN_EMAIL, ADMIN_PASSWORD } = process.env;
+
+if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+  console.error('Fehler: ADMIN_EMAIL und ADMIN_PASSWORD fehlen in server/.env (Vorlage: .env.example).');
+  process.exit(1);
+}
+if (ADMIN_PASSWORD.length < MIN_PASSWORD_LENGTH) {
+  console.error(`Fehler: ADMIN_PASSWORD muss mindestens ${MIN_PASSWORD_LENGTH} Zeichen lang sein.`);
+  process.exit(1);
+}
 
 // 1. Alte Tabellen löschen (zuerst die, die auf andere verweisen)
 db.exec(`
@@ -121,9 +134,17 @@ insert.run('Teamleitung Lager (m/w/d)', 'Lager', 'Hamburg', 'Vollzeit',
   'Du führst ein Team von zwölf Personen im Lager.',
   'Mehrjährige Erfahrung im Lager, erste Führungserfahrung.', 'draft');
 
-// 4. Kontrolle: welche Tabellen gibt es jetzt?
+
+// 4. Erster Admin aus der .env-Datei anlegen
+db.prepare(`
+  INSERT INTO users (name, email, password_hash, role)
+  VALUES (?, ?, ?, 'admin')
+`).run(ADMIN_NAME, ADMIN_EMAIL.toLowerCase(), await hashPassword(ADMIN_PASSWORD));
+
+// 5. Kontrolle: welche Tabellen gibt es jetzt?
 const tables = db.prepare(`
   SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name
 `).all().map((row) => row.name);
 
 console.log('Datenbank angelegt. Tabellen:', tables.join(', '));
+console.log('Admin angelegt:', ADMIN_EMAIL.toLowerCase());

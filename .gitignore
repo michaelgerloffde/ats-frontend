@@ -4,3 +4,4 @@ dist/
 server/data/
 logbuch.txt
 Übersicht konzepte.txt
+.env

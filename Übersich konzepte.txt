@@ -646,3 +646,35 @@ Notiz für B9: Testaufbau ist in beiden Dateien doppelt -> gemeinsame Hilfsdatei
 Ergebnis: 8 von 8 Tests bestanden.
 
 Commit: "Tests für Statusseite ergänzt"
+
+
+B6: LOgin und Sitzung für recrouiter 
+B6 Etappe 1: Erster Admin mit gehashtem Passwort
+
+B6 Etappe 1: Erster Admin mit gehashtem Passwort
+
+Gebaut:
+- lib/password.js: hashPassword / verifyPassword mit scrypt (in Node eingebaut, E8)
+  - Hash = Einbahnstraße: aus dem Hash lässt sich das Passwort nicht zurückrechnen
+  - Salt (Zufallswert pro Passwort) -> gleiche Passwörter ergeben verschiedene Hashes
+  - Werte nach OWASP Password Storage Cheat Sheet (N=2^17, r=8, p=1)
+  - timingSafeEqual: Vergleich immer gleich schnell -> keine Rückschlüsse über die Zeit
+  - Mindestlänge 15 Zeichen (E7)
+- server/.env mit Admin-Zugangsdaten (NICHT in Git, Eintrag in .gitignore)
+- server/.env.example als Vorlage (IN Git)
+- init-db.js:
+  - prüft zuerst die Zugangsdaten, bricht vor dem Löschen ab, wenn sie fehlen oder zu kurz sind
+  - legt den ersten Admin mit Hash an
+  - gibt nur die E-Mail aus, nie das Passwort (E7)
+- package.json: init-db mit node --env-file=.env (eingebaut, kein dotenv nötig)
+- Tests: eigene Test-Zugangsdaten, unabhängig von der echten .env
+
+Getestet:
+- init-db legt Admin an, in der DB steht nur salt:hash
+- .env erscheint nicht in Source Control
+- npm test: 8 von 8 grün
+
+Quelle: OWASP Password Storage Cheat Sheet
+https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html
+
+Commit: "Erster Admin mit gehashtem Passwort angelegt"

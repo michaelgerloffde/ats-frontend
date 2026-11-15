@@ -7,6 +7,8 @@ import path from 'node:path';
 
 // Testumgebung: Datenbank nur im Arbeitsspeicher, PDFs in einen eigenen Temp-Ordner
 process.env.DB_FILE = ':memory:';
+process.env.ADMIN_EMAIL = 'admin@test.de';
+process.env.ADMIN_PASSWORD = 'testpasswort-mit-15-zeichen';
 process.env.UPLOAD_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'ats-test-'));
 
 // Erst danach laden, damit db.js und public.js die Testwerte übernehmen

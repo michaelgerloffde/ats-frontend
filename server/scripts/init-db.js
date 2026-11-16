@@ -17,6 +17,7 @@ if (ADMIN_PASSWORD.length < MIN_PASSWORD_LENGTH) {
 
 // 1. Alte Tabellen löschen (zuerst die, die auf andere verweisen)
 db.exec(`
+  DROP TABLE IF EXISTS login_attempts;
   DROP TABLE IF EXISTS sessions;
   DROP TABLE IF EXISTS status_history;
   DROP TABLE IF EXISTS notes;
@@ -46,6 +47,12 @@ db.exec(`
     last_seen_at INTEGER NOT NULL
   );
 
+    CREATE TABLE login_attempts (
+    email        TEXT PRIMARY KEY,
+    failed       INTEGER NOT NULL DEFAULT 0,
+    locked_until INTEGER
+  );
+  
   CREATE TABLE jobs (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     title           TEXT NOT NULL,

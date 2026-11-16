@@ -678,3 +678,64 @@ Quelle: OWASP Password Storage Cheat Sheet
 https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html
 
 Commit: "Erster Admin mit gehashtem Passwort angelegt"
+
+
+
+
+B6 Etappe 2: Login und Sitzung
+
+Prinzip Sitzung:
+Login -> Server erzeugt Zufallswert -> Cookie im Browser -> Browser schickt ihn bei jeder Anfrage
+-> Server schaut in sessions nach -> Logout/Ablauf löscht den Eintrag.
+Vorteil gegenüber JWT (E7): Der Server kann Sitzungen jederzeit beenden.
+
+Gebaut:
+- Tabelle sessions (technisch, nicht im ER-Diagramm): Hash des Cookie-Werts, Nutzer, Zeiten
+  - nur Hash gespeichert -> gestohlene DB ermöglicht keinen Login
+  - ON DELETE CASCADE: Nutzer weg -> Sitzungen weg
+- lib/session.js:
+  - Cookie HttpOnly (kein Zugriff per JavaScript/XSS), SameSite=Strict (keine fremden Seiten),
+    Secure nur im Betrieb (localhost hat kein HTTPS)
+  - Ablauf nach 30 Min. Inaktivität oder spätestens 8 Std. (E7)
+  - gesperrte Nutzer verlieren ihre Sitzung
+  - Cookie-Lesen ohne Zusatzpaket (E8)
+- routes/auth.js: POST /login, POST /logout, GET /session
+  - gleiche Fehlermeldung bei falscher E-Mail und falschem Passwort
+  - Dummy-Hash: gleiche Antwortzeit -> verrät nicht, ob es die E-Mail gibt
+  - jeder Login = neue Sitzung
+- Frontend: getSession, login, logout auf den Server umgestellt
+
+Getestet:
+- falsches Passwort / unbekannte E-Mail -> gleiche Meldung
+- richtiges Passwort -> angemeldet, bleibt nach Neuladen angemeldet
+- Abmelden -> abgemeldet
+- Cookie in den Entwicklertools: HttpOnly, SameSite Strict
+- Dashboard zeigt noch Fehler (Mock) -> kommt in Etappe 4
+
+Quelle: OWASP Session Management Cheat Sheet, OWASP Authentication Cheat Sheet
+
+Commit: "Login und Sitzung umgesetzt"
+
+B6 Etappe 3: Login-Sperre.
+B6 Etappe 3: Login-Sperre nach Fehlversuchen
+
+Gebaut:
+- Tabelle login_attempts (technisch): E-Mail, Anzahl Fehlversuche, gesperrt bis
+  - gezählt pro E-Mail-Adresse, auch für nicht vorhandene E-Mails
+    -> 429 verrät nicht, ob es ein Konto gibt
+- lib/login-lock.js: lockedMinutes (abfragen), recordFailure (zählen, beim 5. sperren),
+  clearFailures (bei Erfolg zurücksetzen)
+  - nach Ablauf einer Sperre wird neu gezählt
+- routes/auth.js:
+  - Sperre wird zuerst geprüft -> während der Sperre hilft auch das richtige Passwort nicht
+  - Fehlversuch zählen, bei Erfolg Zähler löschen
+  - Antwort 429 "Too Many Requests" mit Restminuten
+
+Getestet:
+- Versuch 1-5 -> 401, Versuch 6 -> 429 (passt zu Sicherheitstest in E9)
+- richtiges Passwort während Sperre -> 429
+- Sperre per DELETE aufgehoben -> Login klappt
+
+Quelle: OWASP Authentication Cheat Sheet (Account Lockout)
+
+Commit: "Login-Sperre nach Fehlversuchen ergänzt"

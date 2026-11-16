@@ -69,3 +69,14 @@ export function readSessionCookie(req) {
   }
   return null;
 }
+
+
+// Wächter für geschützte Routen: ohne gültige Sitzung -> 401, sonst Nutzer in req.user
+export function requireLogin(req, res, next) {
+  const user = getSessionUser(readSessionCookie(req));
+  if (!user) {
+    return res.status(401).json({ error: 'Bitte melde Dich an.' });
+  }
+  req.user = user;
+  next();
+}

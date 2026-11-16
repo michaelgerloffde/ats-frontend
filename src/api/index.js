@@ -69,8 +69,7 @@ export function withdrawApplication(token) {
 
 /** → { stats, counts, recent } */
 export function getDashboard() {
-  return mock.getDashboard();
-  // return request('GET', '/admin/dashboard');
+  return request('GET', '/admin/dashboard');
 }
 
 /** status: '' | 'draft' | 'published' | 'closed' → { jobs } (mit app_count, new_count) */

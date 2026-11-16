@@ -2,6 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import publicRoutes from './routes/public.js';
 import authRoutes from './routes/auth.js';
+import adminRoutes from './routes/admin.js';
 
 // Express-App erstellen (gestartet wird sie in index.js)
 export const app = express();
@@ -13,6 +14,9 @@ app.use(express.json());
 app.use('/api', publicRoutes);
 // Anmelden, Abmelden, Sitzung abfragen
 app.use('/api', authRoutes);
+
+// Verwaltungsbereich: nur mit Login
+app.use('/api/admin', adminRoutes);
 
 // Fehlerbehandlung: Middleware mit 4 Parametern, läuft nur nach einem Fehler.
 // Muss nach den Routen stehen, damit sie deren Fehler auffängt.

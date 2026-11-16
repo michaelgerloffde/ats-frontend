@@ -739,3 +739,30 @@ Getestet:
 Quelle: OWASP Authentication Cheat Sheet (Account Lockout)
 
 Commit: "Login-Sperre nach Fehlversuchen ergänzt"
+
+B6 Etappe 4: Verwaltungsbereich durch Login geschützt
+
+B6 Etappe 4: Verwaltungsbereich durch Login geschützt
+
+Gebaut:
+- requireLogin in lib/session.js (Middleware = läuft vor der Route):
+  ohne gültige Sitzung -> 401, sonst Nutzer in req.user und weiter (next)
+  req.user wird in B7 gebraucht (Rechte, Autor von Notizen)
+- lib/stages.js: die 6 Stufen aus E4 an einer Stelle
+- routes/admin.js:
+  - router.use(requireLogin) ganz oben -> gilt für ALLE Verwaltungsrouten,
+    keine Route kann aus Versehen ungeschützt bleiben (OWASP A01 Broken Access Control)
+  - GET /dashboard: Kennzahlen, Anzahl je Stufe (GROUP BY), 5 neueste Bewerbungen
+  - Anonymität (E4): Name nur, wenn revealed_at gesetzt ist, sonst "Bewerbung #0001"
+  - nur die Felder, die das Dashboard braucht (Datensparsamkeit E5)
+- app.js: admin-Routen unter /api/admin
+- Frontend: getDashboard auf den Server umgestellt
+
+Getestet:
+- curl ohne Login -> 401
+- Dashboard mit Login -> echte Zahlen
+- neue Bewerbung erscheint anonym
+- abgemeldet /admin -> Anmeldung
+- übrige Verwaltungsseiten noch am Mock (B7)
+
+Commit: "Verwaltungsbereich durch Login geschützt"

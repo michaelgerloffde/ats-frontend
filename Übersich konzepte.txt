@@ -766,3 +766,336 @@ Getestet:
 - übrige Verwaltungsseiten noch am Mock (B7)
 
 Commit: "Verwaltungsbereich durch Login geschützt"
+
+B6 Etappe 1: Erster Admin mit gehashtem Passwort
+
+Ziel:
+"npm run init-db" legt einen ersten Admin an. Sein Passwort steht nur in einer lokalen .env-Datei
+und wird in der Datenbank nie im Klartext gespeichert, sondern nur als Hash.
+Grundlage: E3 (erster Admin über init-db), E7 (Passwort-Hashing, Mindestlänge), E8 (nur Node-Bordmittel).
+
+Gebaut:
+1. server/lib/password.js mit zwei Funktionen:
+   - hashPassword(passwort) -> "salt:hash" zum Speichern
+   - verifyPassword(passwort, gespeichert) -> true/false beim Login
+2. server/.env mit ADMIN_NAME, ADMIN_EMAIL, ADMIN_PASSWORD (echtes Passwort, NICHT in Git).
+3. server/.env.example als Vorlage mit Platzhalter-Passwort (kommt MIT ins Repository).
+4. .gitignore: neue Zeile ".env".
+5. init-db.js:
+   - prüft ganz am Anfang, ob E-Mail und Passwort vorhanden sind und das Passwort mind. 15 Zeichen hat
+   - legt nach den Stellen den ersten Admin an (Rolle admin, Passwort nur als Hash)
+   - gibt am Ende nur die E-Mail aus, nie das Passwort
+6. package.json: "init-db": "node --env-file=.env scripts/init-db.js"
+7. Tests (apply.test.js, status.test.js): eigene Test-Zugangsdaten über process.env.
+
+Erklärungen:
+- Hash: eine Einbahnstraße. Aus dem Passwort wird ein Wert berechnet, aber aus dem Wert lässt sich
+  das Passwort nicht zurückrechnen. Wird die Datenbank gestohlen, hat der Angreifer keine Passwörter.
+- scrypt: Hash-Verfahren, das in Node eingebaut ist (kein Zusatzpaket, E8) und von der OWASP
+  empfohlen wird. scrypt ist absichtlich langsam und braucht viel Arbeitsspeicher. Für einen Login
+  merkt man das kaum, aber wer Millionen Passwörter durchprobieren will, braucht sehr lange.
+  Einstellungen nach OWASP: N=2^17, r=8, p=1.
+- Salt: ein Zufallswert pro Passwort, der mit in den Hash eingerechnet und mit gespeichert wird.
+  Zwei Nutzer mit demselben Passwort haben dadurch verschiedene Hashes, und vorberechnete
+  Tabellen mit Hashes bekannter Passwörter (Rainbow Tables) nützen nichts.
+- timingSafeEqual: vergleicht zwei Werte immer gleich schnell. Ein normaler Vergleich bricht beim
+  ersten Unterschied ab; an der Antwortzeit könnte ein Angreifer ablesen, wie viel schon stimmt.
+- promisify/await: scrypt läuft im Hintergrund, damit der Server währenddessen andere Anfragen
+  bearbeiten kann und nicht blockiert.
+- .env: Datei für Werte, die sich je nach Rechner unterscheiden oder geheim sind (Passwörter).
+  Sie gehört nicht in den Code und nicht ins Repository. Die .env.example zeigt anderen,
+  welche Einträge sie brauchen.
+- --env-file: in Node eingebaut, lädt die .env. Das Zusatzpaket dotenv ist dadurch nicht nötig (E8).
+- Prüfung VOR dem Löschen: init-db löscht zuerst alle Tabellen. Würde die Passwortprüfung erst
+  danach kommen, stünde man bei einem Fehler mit einer leeren Datenbank da.
+- Tests mit eigenen Zugangsdaten: So laufen sie auf jedem Rechner, auch ohne .env,
+  und das echte Passwort wird nirgends gebraucht.
+
+Fehler und Lösung:
+- npm meldete "JSONParseError" für package.json: Nach der letzten Zeile in "scripts" stand ein Komma.
+  In JSON darf nach dem letzten Eintrag vor der schließenden Klammer kein Komma stehen.
+  Komma entfernt -> lief.
+- "cd server: no such file or directory": Ich war schon im Ordner server (sichtbar am Prompt).
+
+Getestet:
+- npm run init-db -> "Admin angelegt: admin@kranich.test"
+- zu kurzes Passwort -> Abbruch mit Meldung, Datenbank unverändert
+- sqlite3 data/ats.db "SELECT id, email, role, password_hash FROM users;"
+  -> in password_hash steht "salt:hash", nicht das Passwort
+- Source Control: .env.example erscheint, .env nicht
+- npm test: 8 von 8 grün
+
+Quelle: OWASP Password Storage Cheat Sheet
+https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html
+
+Commit: "Erster Admin mit gehashtem Passwort angelegt"
+
+B6 Etappe 2: Login und Sitzung
+
+Ziel:
+Recruiter und Admins melden sich mit E-Mail und Passwort an. Der Server merkt sich die Anmeldung
+als Sitzung und erkennt den Nutzer bei jeder weiteren Anfrage am Cookie. Abmelden beendet die Sitzung.
+Grundlage: E7 (Sitzung statt JWT, Cookie-Einstellungen, Zeitgrenzen), E8 (keine Zusatzpakete).
+
+So funktioniert eine Sitzung:
+1. Beim Login erzeugt der Server einen langen Zufallswert und schickt ihn als Cookie an den Browser.
+2. Der Browser schickt den Cookie automatisch bei jeder Anfrage an dieselbe Seite mit.
+3. Der Server sucht in der Tabelle sessions, zu welchem Nutzer der Wert gehört und ob er noch gilt.
+4. Beim Logout oder bei Ablauf wird der Eintrag gelöscht. Der Cookie ist danach wertlos.
+Unterschied zu JWT: Bei JWT steht alles im Token selbst, der Server speichert nichts und kann
+ein ausgegebenes Token vor Ablauf nicht zurückziehen. Bei Sitzungen kann der Server jederzeit
+beenden (Logout, Sperre eines Nutzers). Deshalb Sitzungen (E7).
+
+Gebaut:
+1. Tabelle sessions in init-db.js (id, user_id, created_at, last_seen_at).
+   - technische Tabelle, nicht im ER-Diagramm aus E2 (im Bericht ein Satz dazu)
+   - DROP vor users, weil sessions auf users verweist
+   - ON DELETE CASCADE: Wird ein Nutzer gelöscht, verschwinden seine Sitzungen mit
+2. server/lib/session.js:
+   - createSession: Zufallswert erzeugen, Hash davon speichern, Wert zurückgeben
+   - getSessionUser: Nutzer zum Cookie finden, Ablauf prüfen, Aktivität merken
+   - deleteSession: Sitzung löschen
+   - readSessionCookie: Cookie "sid" aus dem Anfrage-Header lesen
+   - cookieOptions: Einstellungen für den Cookie
+3. server/routes/auth.js:
+   - POST /api/login, POST /api/logout, GET /api/session
+4. app.js: auth-Routen unter /api eingehängt.
+5. Frontend src/api/index.js: getSession, login, logout vom Mock auf den Server umgestellt.
+6. Login.jsx: grauen Kasten "Demo-Zugänge (Mock)" entfernt.
+
+Erklärungen:
+- In sessions steht nur der Hash des Cookie-Werts (SHA-256), nicht der Wert selbst.
+  Gleiches Prinzip wie beim Passwort: Wer die Datenbank stiehlt, kann sich damit nicht anmelden.
+- Cookie-Einstellungen (E7):
+  - HttpOnly: JavaScript im Browser kann den Cookie nicht lesen. Eingeschleuster Schadcode (XSS)
+    kann ihn also nicht stehlen.
+  - SameSite=Strict: Der Browser schickt den Cookie nur bei Anfragen von der eigenen Seite.
+    Eine fremde Seite kann keine Aktionen im Namen des angemeldeten Nutzers auslösen.
+  - Secure: Cookie nur über HTTPS. Nur im Betrieb aktiv (NODE_ENV=production),
+    weil localhost kein HTTPS hat. Bewusste Entscheidung, im Bericht offen benennen.
+- Zeitgrenzen (E7): Sitzung endet nach 30 Minuten ohne Aktivität oder spätestens nach 8 Stunden.
+  Jede Anfrage setzt die 30 Minuten zurück (last_seen_at). Gesperrte Nutzer verlieren ihre Sitzung.
+- Cookie-Lesen ohne cookie-parser: Der Browser schickt alle Cookies in einer Zeile
+  ("sid=abc; theme=dark"). Die Funktion sucht "sid" heraus. Kein Zusatzpaket nötig (E8).
+- Gleiche Fehlermeldung bei falscher E-Mail und falschem Passwort: Sonst könnte ein Angreifer
+  herausfinden, welche E-Mail-Adressen ein Konto haben (OWASP Authentication Cheat Sheet).
+- Dummy-Hash: Auch bei unbekannter E-Mail wird ein Passwort-Hash berechnet. Sonst wäre die
+  Antwort bei unbekannten E-Mails spürbar schneller und würde dasselbe verraten.
+- Jeder Login erzeugt eine neue Sitzung mit neuem Zufallswert. Ein alter, vielleicht
+  abgefangener Wert ist damit nicht weiterverwendbar.
+- POST für Login/Logout (verändern etwas), GET für /session (fragt nur ab).
+- Demo-Kasten entfernt: Die Passwörter darin galten nur für den Mock und waren veraltet.
+  Zugangsdaten gehören nie sichtbar auf eine Login-Seite.
+
+Übergangszustand (verstanden):
+- Nach dem Login zeigte das Dashboard "401 Bitte melde Dich an".
+  Grund: Der Login lief schon über den echten Server, die Dashboard-Daten kamen aber noch vom Mock.
+  Der Mock hatte seine eigene Anmeldung im Browser und wusste vom echten Login nichts.
+  Erkennbar daran, dass oben die Recruiting-Navigation und "Abmelden" zu sehen waren.
+  Gelöst in Etappe 4.
+
+Fehler und Lösung:
+- "Missing script: init-db": Befehl im Hauptordner ats-frontend statt in server ausgeführt.
+- Login mit Mock-Passwort aus dem Demo-Kasten probiert -> gilt nicht mehr.
+  Richtig ist das Passwort aus server/.env.
+
+Getestet:
+- falsches Passwort -> "E-Mail-Adresse oder Passwort ist falsch."
+- unbekannte E-Mail -> dieselbe Meldung
+- richtiges Passwort -> angemeldet, Navigation "Abmelden" sichtbar
+- Neuladen -> weiter angemeldet (Cookie wirkt)
+- Abmelden -> abgemeldet
+- Entwicklertools -> Application -> Cookies: "sid" mit HttpOnly und SameSite Strict
+
+Quellen: OWASP Session Management Cheat Sheet, OWASP Authentication Cheat Sheet
+
+Commit: "Login und Sitzung umgesetzt"
+
+B6 Etappe 3: Login-Sperre nach Fehlversuchen
+
+Ziel:
+Nach 5 falschen Versuchen ist eine E-Mail-Adresse 15 Minuten gesperrt. In dieser Zeit antwortet
+der Server mit 429, auch wenn das Passwort stimmt.
+Grundlage: E7 (Schutz gegen Durchprobieren von Passwörtern, OWASP).
+
+Gebaut:
+1. Tabelle login_attempts in init-db.js (email, failed, locked_until).
+   - technische Tabelle wie sessions, nicht im ER-Diagramm
+2. server/lib/login-lock.js mit drei Funktionen:
+   - lockedMinutes(email): Ist die E-Mail gesperrt? Gibt die Restminuten zurück, sonst 0.
+   - recordFailure(email): Fehlversuch zählen, beim 5. Versuch die Sperre setzen.
+   - clearFailures(email): bei erfolgreichem Login den Zähler löschen.
+3. routes/auth.js, Login-Route:
+   - ganz am Anfang Sperre prüfen -> 429 mit Restminuten
+   - bei falschem Login recordFailure
+   - bei richtigem Login clearFailures
+
+Erklärungen:
+- Gezählt wird pro E-Mail-Adresse, nicht pro Nutzer-ID. So werden auch Versuche mit nicht
+  vorhandenen E-Mails gezählt und gesperrt. Würden nur echte Konten gesperrt, könnte ein Angreifer
+  an der 429 erkennen, welche E-Mails ein Konto haben. Gleicher Gedanke wie bei der einheitlichen
+  Fehlermeldung in Etappe 2. Deshalb auch eine eigene Tabelle statt Spalten in users.
+- Die Sperre wird VOR der Passwortprüfung geprüft. Während der Sperre hilft auch das richtige
+  Passwort nicht. Sonst könnte ein Angreifer einfach weiterprobieren, und die Sperre wäre wirkungslos.
+- 429 = "Too Many Requests", der passende Statuscode für zu viele Versuche.
+  Das Frontend zeigt die Meldung des Servers bereits an.
+- Der 5. Fehlversuch bekommt noch 401 (und setzt die Sperre), der 6. dann 429.
+  Passt zum Sicherheitstest aus E9: "sechs falsche Passwörter hintereinander (429)".
+- Nach Ablauf einer Sperre wird wieder bei 0 gezählt. Sonst wäre man nach einer abgelaufenen
+  Sperre schon beim nächsten Tippfehler wieder gesperrt.
+- Erfolgreicher Login löscht den Zähler: Zwei Tippfehler gestern zählen heute nicht mit.
+- INSERT ... ON CONFLICT ... DO UPDATE: Gibt es für die E-Mail noch keine Zeile, wird eine angelegt,
+  sonst aktualisiert. Eine Abfrage für beide Fälle.
+- Math.ceil(ms / 60000): rechnet Millisekunden in aufgerundete Minuten um, für die Meldung.
+
+Fehler und Lösung:
+- Den if-Block in auth.js zusätzlich statt ersetzend eingefügt -> doppelte return,
+  doppelte Variablen (passwordOk, token) -> 4 Probleme, Server startete nicht
+  ("Failed running 'index.js'").
+- Neue Datei falsch benannt: login-block.js statt login-lock.js -> Import findet die Datei nicht.
+- Lösung: auth.js komplett durch die saubere Fassung ersetzt, Datei umbenannt.
+- Erkenntnis: Vor dem Starten die Anzeige "Problems" unten links prüfen. Sie muss 0 sein.
+  Bei vielen kleinen Fehlern in einer Datei ist komplettes Ersetzen sicherer als Flicken.
+
+Getestet:
+- Versuch 1-5 -> "E-Mail-Adresse oder Passwort ist falsch."
+- Versuch 6 -> "Zu viele Fehlversuche. Bitte versuche es in 15 Minuten erneut."
+- richtiges Passwort während der Sperre -> weiterhin gesperrt
+- Sperre aufgehoben mit: sqlite3 data/ats.db "DELETE FROM login_attempts;"
+- danach Login erfolgreich
+- npm test: 8 von 8 grün
+
+Quelle: OWASP Authentication Cheat Sheet (Account Lockout)
+
+Commit: "Login-Sperre nach Fehlversuchen ergänzt"
+
+B6 Etappe 4: Verwaltungsbereich durch Login geschützt
+
+Ziel:
+1. Ein Wächter (requireLogin) prüft bei jeder Anfrage an /api/admin/..., ob eine gültige Sitzung
+   besteht. Ohne Sitzung -> 401.
+2. Das Dashboard holt seine Daten vom Server statt vom Mock.
+Grundlage: E3 (Verwaltung nur mit Login), E4 (anonyme Vorauswahl), E5 (Datensparsamkeit).
+
+Gebaut:
+1. requireLogin in server/lib/session.js (Middleware).
+2. server/lib/stages.js: die 6 Stufen der Pipeline mit Bezeichnung, an einer Stelle.
+3. server/routes/admin.js:
+   - router.use(requireLogin) ganz oben
+   - GET /dashboard: Kennzahlen, Anzahl je Stufe, die 5 neuesten Bewerbungen
+4. app.js: admin-Routen unter /api/admin eingehängt.
+5. Frontend: getDashboard vom Mock auf den Server umgestellt.
+Keine neue Tabelle -> init-db war nicht nötig.
+
+Erklärungen:
+- Middleware: eine Funktion, die VOR der eigentlichen Route läuft (wie express.json()).
+  Sie bekommt req, res und next.
+  - ohne gültige Sitzung: antwortet sofort mit 401, die Route läuft gar nicht erst
+  - mit gültiger Sitzung: legt den Nutzer in req.user ab und ruft next() auf = "weiter zur Route"
+- req.user: Die Routen wissen dadurch, WER die Anfrage stellt. Wird in B7 gebraucht:
+  Stellen bearbeiten nur Ersteller oder Admin, Autor einer Notiz, Löschen nur Admin (E3).
+- router.use(requireLogin) ganz oben in admin.js: Der Wächter gilt für ALLE Routen dieser Datei,
+  auch für die, die in B7 dazukommen. Keine Route kann aus Versehen ungeschützt bleiben.
+  Sicherer, als den Login in jeder Route einzeln zu prüfen (OWASP A01: Broken Access Control).
+- /api/admin: Alle Routen in admin.js bekommen diesen Anfang automatisch.
+  "/dashboard" wird zu "/api/admin/dashboard".
+- Dashboard-Daten:
+  - stats: veröffentlichte Stellen, laufende Bewerbungen (nicht eingestellt/abgesagt),
+    Löschungen in den nächsten 30 Tagen (delete_after, E5)
+  - counts: GROUP BY status zählt je Stufe; über STAGES.map erscheinen auch Stufen mit 0,
+    in der richtigen Reihenfolge
+  - recent: die 5 neuesten Bewerbungen
+- Anonymität (E4): Solange revealed_at leer ist, steht dort nur "Bewerbung #0001", kein Name.
+  Erst der bestätigte Wechsel ins Gespräch deckt die Daten auf (B7).
+  padStart(4, '0') macht aus 1 die Nummer 0001.
+- Datensparsamkeit (E5): Ausgeliefert werden nur die Felder, die das Dashboard anzeigt,
+  keine E-Mail, kein Anschreiben.
+
+Beobachtung für B8:
+- In der curl-Antwort steht "X-Powered-By: Express". Damit verrät der Server seine Technik,
+  das erleichtert Angreifern die Suche nach bekannten Lücken. Helmet entfernt diese Zeile in B8.
+  Screenshot als Vorher/Nachher für den Bericht gemacht.
+
+Übergangszustand (verstanden):
+- Stellen, Bewerbungen, Pipeline und Nutzer:innen zeigen noch "401 Bitte melde Dich an",
+  weil sie noch am Mock hängen. Wird in B7 umgestellt.
+
+Getestet:
+- curl -i http://localhost:3000/api/admin/dashboard (ohne Login) -> 401 "Bitte melde Dich an."
+- Dashboard mit Login -> echte Zahlen: 4 veröffentlichte Stellen (die 5. ist ein Entwurf),
+  0 Bewerbungen (Datenbank war neu aufgesetzt)
+- neue Bewerbung abgeschickt -> "laufende Bewerbungen 1", "Eingegangen 1",
+  unter Neueste Bewerbungen "Bewerbung #0001" ohne Namen
+- abgemeldet /admin aufgerufen -> Anmeldeseite
+- npm test: 8 von 8 grün
+
+Quelle: OWASP Top 10:2025, A01 Broken Access Control
+
+Commit: "Verwaltungsbereich durch Login geschützt"
+
+B6 Etappe 5: Automatische Tests für Login und Schutz
+
+Ziel:
+Alles, was in B6 von Hand geprüft wurde (Login, Logout, Sperre, Schutz des Verwaltungsbereichs),
+läuft jetzt automatisch per "npm test". Damit ist auch T07 aus den Top 10 des Testplans (E9) abgedeckt.
+
+Gebaut:
+- Neue Testdatei server/test/auth.test.js.
+  Der Aufbau ist derselbe wie in apply.test.js und status.test.js: Datenbank nur im Arbeitsspeicher
+  (:memory:), eigene Test-Zugangsdaten für den Admin, eigener Test-Server auf einem freien Port.
+  Die echte Datenbank und die echte .env werden nicht angefasst.
+- node --test findet die neue Datei automatisch, weil sie auf .test.js endet.
+  package.json musste nicht geändert werden.
+
+Neu in diesen Tests: Cookie von Hand weiterreichen
+- Im Browser schickt der Browser den Sitzungs-Cookie automatisch bei jeder Anfrage mit.
+  Im Test gibt es keinen Browser, deshalb macht der Test das selbst:
+  1. Nach dem Login den Cookie aus der Antwort lesen (Header "set-cookie").
+  2. Davon nur den Teil "sid=..." nehmen (alles vor dem ersten Semikolon).
+     Der Rest sind Einstellungen wie HttpOnly oder Max-Age, die nur der Browser braucht.
+  3. Bei der nächsten Anfrage als Header "Cookie" mitschicken.
+- So lässt sich prüfen, ob der Server die Sitzung erkennt (Dashboard 200)
+  und ob sie nach dem Logout ungültig ist (Dashboard 401).
+
+Unabhängigkeit der Tests:
+- beforeEach leert vor jedem Test zusätzlich die Tabellen sessions und login_attempts.
+- Warum: Test A04 sperrt das Admin-Konto absichtlich. Ohne das Leeren wäre der Admin im nächsten
+  Test noch gesperrt, und der Test würde aus dem falschen Grund fehlschlagen.
+  Jeder Test muss für sich allein funktionieren, egal in welcher Reihenfolge
+  (Skript Qualitätssicherung, Kap. 6.2, S. 101: Unabhängigkeit).
+
+Testfälle und was sie absichern:
+- T07 (Top 10 aus E9): Verwaltungsroute ohne Login -> 401.
+  Sichert: Der Wächter requireLogin schützt den Verwaltungsbereich (E3, OWASP A01).
+- A01: falsches Passwort und unbekannte E-Mail -> beide 401 mit exakt gleicher Antwort (deepEqual).
+  Sichert: Ein Angreifer kann nicht herausfinden, welche E-Mail-Adressen ein Konto haben.
+- A02: richtiger Login -> 200, Cookie enthält HttpOnly und SameSite=Strict, Dashboard erreichbar.
+  Sichert: die Cookie-Einstellungen aus E7. Würde später jemand HttpOnly aus Versehen entfernen,
+  schlägt der Test sofort fehl (Regressionsfähigkeit).
+- A03: nach dem Logout mit dem alten Cookie -> 401.
+  Sichert: Abmelden beendet die Sitzung wirklich auf dem Server, nicht nur im Browser.
+  Das ist der Vorteil von Sitzungen gegenüber JWT (E7).
+- A04: fünfmal falsches Passwort -> 401, sechster Versuch -> 429,
+  danach auch mit richtigem Passwort -> 429.
+  Sichert: die Login-Sperre aus E7 (5 Fehlversuche -> 15 Minuten). Entspricht dem
+  Sicherheitstest "sechs falsche Passwörter hintereinander" aus E9.
+- A05: nach einer neuen Bewerbung zeigt das Dashboard "Bewerbung #0001",
+  der Nachname kommt in der Antwort nicht vor.
+  Sichert: die anonyme Vorauswahl aus E4 und die Datensparsamkeit aus E5.
+
+Beobachtung:
+- Die Tests dauern jetzt einige Sekunden statt unter einer Sekunde.
+  Grund: Jeder Login berechnet einen scrypt-Hash, und scrypt ist absichtlich langsam und
+  speicherhungrig, damit massenhaftes Durchprobieren von Passwörtern teuer wird.
+  Rund 12 Logins in den Tests summieren sich. Das ist gewollt und kein Fehler.
+
+Ergebnis: 14 von 14 Tests bestanden
+(T01-T03, T07, A01-A05, S01-S04).
+
+Begriffe:
+- Testfall-IDs: T = Top 10 aus E9, A = Anmeldung, S = Statusseite.
+  A- und S-Fälle gehören laut E9 in den Anhang des Berichts.
+- deepEqual: vergleicht zwei Objekte Feld für Feld, nicht nur, ob es dasselbe Objekt ist.
+- Regressionsfähigkeit: Nach jeder Änderung zeigt npm test, ob etwas Bestehendes kaputtgegangen ist.
+
+Commit: "Tests für Login ergänzt"

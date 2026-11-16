@@ -18,19 +18,16 @@ export { resetMockData } from './mock.js';
 
 /** → { user: { id, name, email, role } | null } */
 export function getSession() {
-  return mock.getSession();
-  // return request('GET', '/session');
+ return request('GET', '/session');
 }
 
 /** → { user } · 401 falsche Daten · 429 gesperrt */
 export function login(email, password) {
-  return mock.login(email, password);
-  // return request('POST', '/login', { body: { email, password } });
+ return request('POST', '/login', { body: { email, password } });
 }
 
 export function logout() {
-  return mock.logout();
-  // return request('POST', '/logout');
+  return request('POST', '/logout');
 }
 
 // ---------- Öffentlicher Bereich ----------

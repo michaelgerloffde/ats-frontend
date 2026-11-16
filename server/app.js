@@ -1,6 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import publicRoutes from './routes/public.js';
+import authRoutes from './routes/auth.js';
 
 // Express-App erstellen (gestartet wird sie in index.js)
 export const app = express();
@@ -10,6 +11,8 @@ app.use(express.json());
 
 // Öffentliche Routen unter /api einhängen
 app.use('/api', publicRoutes);
+// Anmelden, Abmelden, Sitzung abfragen
+app.use('/api', authRoutes);
 
 // Fehlerbehandlung: Middleware mit 4 Parametern, läuft nur nach einem Fehler.
 // Muss nach den Routen stehen, damit sie deren Fehler auffängt.

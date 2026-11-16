@@ -17,6 +17,7 @@ if (ADMIN_PASSWORD.length < MIN_PASSWORD_LENGTH) {
 
 // 1. Alte Tabellen löschen (zuerst die, die auf andere verweisen)
 db.exec(`
+  DROP TABLE IF EXISTS sessions;
   DROP TABLE IF EXISTS status_history;
   DROP TABLE IF EXISTS notes;
   DROP TABLE IF EXISTS attachments;
@@ -36,6 +37,13 @@ db.exec(`
     role          TEXT NOT NULL CHECK (role IN ('recruiter', 'admin')),
     active        INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
     created_at    TEXT NOT NULL DEFAULT ${NOW}
+  );
+
+    CREATE TABLE sessions (
+    id           TEXT PRIMARY KEY,
+    user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at   INTEGER NOT NULL,
+    last_seen_at INTEGER NOT NULL
   );
 
   CREATE TABLE jobs (

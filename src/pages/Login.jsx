@@ -43,11 +43,7 @@ export default function Login() {
         </Field>
         <Button type="submit" disabled={busy} className="w-full">Anmelden</Button>
       </form>
-      <div className="mt-6 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
-        <p className="font-semibold">Demo-Zugänge (Mock):</p>
-        <p>admin@kranich.test · Admin!Demo2026</p>
-        <p>recruiter@kranich.test · Recruiter!Demo2026</p>
-      </div>
+     
       <p className="mt-4 text-sm"><Link to="/" className="text-brand-700 hover:underline">← Zur Karriereseite</Link></p>
     </div>
   );

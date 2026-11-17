@@ -2,14 +2,15 @@ import path from 'node:path';
 import { Router } from 'express';
 import { db } from '../db.js';
 import { requireAdmin, requireLogin } from '../lib/session.js';
-import { validateJob } from '../lib/validation.js';
+import { EMAIL_PATTERN, validateJob } from '../lib/validation.js';
+import { deleteApplication, UPLOAD_DIR } from '../lib/applications.js';
+import { hashPassword, MIN_PASSWORD_LENGTH } from '../lib/password.js';
 import { STAGES } from '../lib/stages.js';
 
 const router = Router();
 
 
-// Gleicher Ordner wie beim Hochladen (routes/public.js)
-const UPLOAD_DIR = process.env.UPLOAD_DIR ?? path.join('data', 'uploads');
+
 const PER_PAGE = 10;
 
 // Bewerbung für die Verwaltung aufbereiten: Name und Kontaktdaten erst nach dem Aufdecken (E4)
@@ -439,6 +440,84 @@ router.put('/notes/:id', (req, res) => {
   }
 
   db.prepare('UPDATE notes SET body = ? WHERE id = ?').run(text, note.id);
+  res.json({ ok: true });
+});
+
+
+
+// ---------- Nur für Admins: Bewerbung löschen, Nutzer verwalten (E3) ----------
+
+// Bewerbung von Hand löschen (z. B. Löschanfrage nach Art. 17 DSGVO)
+router.delete('/applications/:id', requireAdmin, (req, res) => {
+  if (!deleteApplication(req.params.id)) {
+    return res.status(404).json({ error: 'Diese Bewerbung existiert nicht (mehr).' });
+  }
+  res.json({ ok: true });
+});
+
+// Alle Routen unter /users nur für Admins
+router.use('/users', requireAdmin);
+
+// Nutzerliste, ohne Passwort-Hash
+router.get('/users', (req, res) => {
+  const users = db.prepare(`
+    SELECT id, name, email, role, active, created_at FROM users ORDER BY name
+  `).all().map((user) => ({ ...user, active: user.active === 1 }));
+  res.json({ users });
+});
+
+// Neuen Zugang anlegen; Startpasswort mind. 15 Zeichen, gespeichert nur als Hash
+router.post('/users', async (req, res) => {
+  const name = String(req.body?.name ?? '').trim();
+  const email = String(req.body?.email ?? '').trim().toLowerCase();
+  const role = req.body?.role;
+  const password = String(req.body?.password ?? '');
+
+  const errors = {};
+  if (!name || name.length > 100) errors.name = 'Pflichtfeld, höchstens 100 Zeichen.';
+  if (!EMAIL_PATTERN.test(email) || email.length > 254) {
+    errors.email = 'Ungültige E-Mail-Adresse.';
+  } else if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) {
+    errors.email = 'Diese E-Mail-Adresse ist bereits vergeben.';
+  }
+  if (!['recruiter', 'admin'].includes(role)) errors.role = 'Ungültige Rolle.';
+  if (password.length < MIN_PASSWORD_LENGTH) errors.password = `Mindestens ${MIN_PASSWORD_LENGTH} Zeichen.`;
+
+  if (Object.keys(errors).length > 0) {
+    return res.status(422).json({ errors });
+  }
+
+  db.prepare(`
+    INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)
+  `).run(name, email, await hashPassword(password), role);
+
+  res.status(201).json({ ok: true });
+});
+
+// Zugang sperren oder wieder freigeben; nicht sich selbst, nicht den letzten aktiven Admin
+router.post('/users/:id/toggle', (req, res) => {
+  const user = db.prepare('SELECT id, role, active FROM users WHERE id = ?').get(req.params.id);
+  if (!user) {
+    return res.status(404).json({ error: 'Nutzer nicht gefunden.' });
+  }
+  if (user.id === req.user.id) {
+    return res.status(422).json({ error: 'Du kannst Deinen eigenen Zugang nicht deaktivieren.' });
+  }
+
+  const deactivate = user.active === 1;
+  if (deactivate && user.role === 'admin') {
+    const { n } = db.prepare(`SELECT COUNT(*) AS n FROM users WHERE role = 'admin' AND active = 1`).get();
+    if (n <= 1) {
+      return res.status(422).json({ error: 'Der letzte aktive Admin kann nicht deaktiviert werden.' });
+    }
+  }
+
+  db.prepare('UPDATE users SET active = ? WHERE id = ?').run(deactivate ? 0 : 1, user.id);
+
+  // Gesperrte Nutzer sofort abmelden
+  if (deactivate) {
+    db.prepare('DELETE FROM sessions WHERE user_id = ?').run(user.id);
+  }
   res.json({ ok: true });
 });
 

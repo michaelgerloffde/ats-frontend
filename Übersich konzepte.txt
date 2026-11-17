@@ -1457,3 +1457,73 @@ Screenshots:
 Meine Erkenntnis:
 
 Commit: "Notizen mit Bearbeitungsfrist"
+
+
+B7 Etappe 6: Admin-Funktionen und Nutzerverwaltung
+
+Ziel:
+Die letzten Mock-Funktionen auf den Server, alle nur für Admins (E3):
+- Bewerbung von Hand löschen (z. B. Löschanfrage Art. 17 DSGVO)
+- Nutzerliste (ohne Passwort-Hash)
+- Zugang anlegen (Startpasswort mind. 15 Zeichen, nur als Hash gespeichert)
+- Zugang sperren/freigeben (nicht sich selbst, nicht den letzten aktiven Admin; sofort abmelden)
+Danach hängt keine Funktion mehr am Mock.
+Dazu Aufräumen: Löschen einer Bewerbung als gemeinsame Funktion.
+
+Gebaut:
+1. server/lib/applications.js: UPLOAD_DIR und deleteApplication(id)
+2. public.js: Rückzug nutzt deleteApplication; eigene UPLOAD_DIR-Zeilen entfernt
+3. admin.js: DELETE /applications/:id, GET/POST /users, POST /users/:id/toggle;
+   eigene UPLOAD_DIR-Zeile entfernt
+4. validation.js: EMAIL_PATTERN exportiert (wiederverwendet)
+5. Frontend: deleteApplication, getUsers, createUser, toggleUser umgestellt;
+   Hinweis Startpasswort 12 -> 15 Zeichen (E7)
+
+Erklärungen:
+- Gemeinsame Löschfunktion (DRY = Don't Repeat Yourself): Derselbe Ablauf wird dreimal gebraucht
+  (Rückzug B5, Admin B7, Löschlauf B8). Einmal geschrieben -> Änderungen und Fehler betreffen alle
+  gleich. UPLOAD_DIR stand doppelt (public.js, admin.js), jetzt an einer Stelle.
+  return false bei unbekannter Bewerbung -> Route macht 404 daraus.
+- router.use('/users', requireAdmin): schützt alle Adressen unter /users, auch künftige
+  (gleiches Prinzip wie router.use(requireLogin)).
+- Nutzerliste mit einzeln aufgezählten Spalten statt SELECT *: Der Passwort-Hash kann nie aus
+  Versehen mitgeschickt werden. active 0/1 -> false/true.
+- Zugang anlegen: Prüfung je Feld (422); EMAIL_PATTERN wiederverwendet; doppelte E-Mail mit
+  freundlicher Meldung statt UNIQUE-Fehler; Mindestlänge über MIN_PASSWORD_LENGTH (gleiche
+  Konstante wie beim ersten Admin); gespeichert nur der scrypt-Hash; async wegen hashPassword.
+- Sperren:
+  - nicht sich selbst (E3, Schutz vor Aussperren)
+  - nicht den letzten aktiven Admin: greift faktisch nie, solange "nicht sich selbst" gilt
+    (wer sperrt, ist selbst aktiver Admin). Bleibt als zweite Sicherung = Defense in Depth.
+  - Sitzungen des Gesperrten werden gelöscht -> sofort abgemeldet
+  - sperren statt löschen: Notizen und Verlauf verweisen auf den Nutzer und bleiben Nachweis (E3)
+
+Getestet:
+- Zugang: falsche Daten -> 422 je Feld; korrekt -> angelegt; gleiche E-Mail -> "bereits vergeben"
+- eigener Zugang: kein Deaktivieren-Knopf; per curl -> 422
+- als Recruiter (Inkognito-Fenster):
+  - Nutzer:innen -> 403
+  - fremde Stelle bearbeiten -> 403 (Test aus Etappe 1)
+  - eigene Stelle anlegen und bearbeiten -> ok
+  - kein Löschen-Kasten bei Bewerbungen
+  - Notiz des Admins nicht bearbeitbar
+- Rita gesperrt -> sofort abgemeldet, Login abgelehnt; wieder aktiviert -> Login klappt
+- Admin löscht Bewerbung -> Daten und PDF weg
+- Rückzug über die Statusseite weiterhin ok (S04)
+- index.js: keine "return mock."-Zeile mehr
+- npm test: 14 von 14 grün
+
+Screenshots:
+Meine Erkenntnis:
+
+Commit: "Admin-Funktionen und Nutzerverwaltung"
+
+
+Fehlersuche Login rita2:
+- Login schlug fehl ("E-Mail-Adresse oder Passwort ist falsch.")
+- Vorgehen: erst prüfen, was gespeichert ist (sqlite3: Nutzer existiert, aktiv),
+  dann Login direkt am Server testen (curl), um den Browser auszuschließen
+- Ursache: Chrome hat beim Anlegen ein "starkes Passwort" vorgeschlagen und eingesetzt
+- Lösung: neuer Zugang rita3, Passwort von Hand getippt, Vorschlag ignoriert
+- Erkenntnis: Passwörter liegen nur als Hash vor; auch der Admin kann sie nicht nachsehen.
+  "Passwort vergessen/zurücksetzen" wäre eine Ausbaustufe (mit E-Mail-Versand).

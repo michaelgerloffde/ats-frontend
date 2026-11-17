@@ -1,7 +1,7 @@
 export const MAX_FILE_BYTES = 5 * 1024 * 1024;
 export const MAX_COVER_LETTER = 5000;
+export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_PATTERN = /^\+?[0-9 ()/-]{6,30}$/;
 
 export function validateApplication(fields, file) {

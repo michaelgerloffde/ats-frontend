@@ -7,12 +7,10 @@ import { Router } from "express";
 import multer from "multer";
 import { db } from "../db.js";
 import { validateApplication, MAX_FILE_BYTES } from "../lib/validation.js";
+import { deleteApplication, UPLOAD_DIR } from '../lib/applications.js';
 
 const router = Router();
 
-// Ordner für hochgeladene PDFs: normal data/uploads, in Tests ein anderer (über UPLOAD_DIR)
-const UPLOAD_DIR = process.env.UPLOAD_DIR ?? path.join('data', 'uploads');
-fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const PER_PAGE = 10;
 
@@ -304,35 +302,13 @@ router.post('/status/:token/withdraw', (req, res) => {
     return res.status(422).json({ error: 'Bitte bestätige, dass Du Deine Bewerbung zurückziehen möchtest.' });
   }
 
-  const application = db.prepare(`
-    SELECT id, candidate_id FROM applications WHERE status_token = ?
-  `).get(req.params.token);
-
+  const application = db.prepare('SELECT id FROM applications WHERE status_token = ?').get(req.params.token);
   if (!application) {
     return res.status(404).json({ error: 'Zu diesem Link gibt es keine Bewerbung (mehr).' });
   }
 
-  // Dateinamen merken, bevor die Einträge gelöscht werden
-  const files = db.prepare(`
-    SELECT stored_name FROM attachments WHERE application_id = ?
-  `).all(application.id);
-
-  // Datenbank in einer Transaktion bereinigen
-  db.exec('BEGIN');
-  try {
-    // Löscht durch ON DELETE CASCADE auch Anhänge, Notizen und Verlauf
-    db.prepare('DELETE FROM applications WHERE id = ?').run(application.id);
-    db.prepare('DELETE FROM candidates WHERE id = ?').run(application.candidate_id);
-    db.exec('COMMIT');
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
-
-  // Erst nach erfolgreichem Löschen in der Datenbank die PDFs entfernen
-  for (const file of files) {
-    fs.rmSync(path.join(UPLOAD_DIR, file.stored_name), { force: true });
-  }
+  // Alles löschen: Datenbank und PDF (gemeinsame Funktion, lib/applications.js)
+  deleteApplication(application.id);
 
   res.json({ ok: true });
 });

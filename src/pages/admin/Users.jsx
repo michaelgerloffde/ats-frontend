@@ -74,7 +74,7 @@ export default function Users() {
               </select>
             )}
           </Field>
-          <Field id="password" label="Startpasswort" hint="Mindestens 12 Zeichen." error={errors.password}>
+          <Field id="password" label="Startpasswort" hint="Mindestens 15 Zeichen." error={errors.password}>
             {(p) => <input type="password" autoComplete="new-password" value={form.password} onChange={set('password')} {...p} />}
           </Field>
           <Button type="submit" className="justify-self-start">Zugang anlegen</Button>

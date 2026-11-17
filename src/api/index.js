@@ -34,24 +34,20 @@ export function logout() {
 
 /** → { jobs: Job[3], openCount, departments: [{ department, n }] } */
 export function getHome() {
-  //return mock.getHome();
   return request('GET', '/home');
 }
 
 /** filters: { q, department, location, type, page } → { jobs, pagination, options } */
 export function getJobs(filters) {
-  //return mock.getJobs(filters);
   return request('GET', `/jobs?${new URLSearchParams(filters)}`);
 }
 
 /** → { job } · 404 */
 export function getJob(id) {
-  //return mock.getJob(id);
   return request('GET', `/jobs/${id}`);
 }
 
 export function applyToJob(id, formData) {
-  // return mock.applyToJob(id, formData);
   return request('POST', `/jobs/${id}/apply`, { formData });
 }
 
@@ -132,8 +128,7 @@ export function updateNote(noteId, body) {
 
 /** nur Admin → { ok } · 403 */
 export function deleteApplication(id) {
-  return mock.deleteApplication(id);
-  // return request('DELETE', `/admin/applications/${id}`);
+  return request('DELETE', `/admin/applications/${id}`);
 }
 
 /** Link zum Herunterladen des Lebenslaufs (oder null, wenn im Mock keine Datei vorliegt) */
@@ -150,18 +145,15 @@ export function getPipeline(jobId) {
 
 /** → { users } · 403 */
 export function getUsers() {
-  return mock.getUsers();
-  // return request('GET', '/admin/users');
+  return request('GET', '/admin/users');
 }
 
 /** user: { name, email, role, password } → 201 { ok } · 422 { errors } */
 export function createUser(user) {
-  return mock.createUser(user);
-  // return request('POST', '/admin/users', { body: user });
+  return request('POST', '/admin/users', { body: user });
 }
 
 /** → { ok } · 422 (eigener Zugang) */
 export function toggleUser(id) {
-  return mock.toggleUser(id);
-  // return request('POST', `/admin/users/${id}/toggle`);
+ return request('POST', `/admin/users/${id}/toggle`);
 }

@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { addNote, attachmentUrl, deleteApplication, getApplication, rateApplication } from '../../api';
+import { addNote, attachmentUrl, deleteApplication, getApplication, rateApplication, updateNote } from '../../api';
 import { useAsync } from '../../hooks/useAsync.js';
 import { useSession } from '../../context/SessionContext.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
 import { STAGES, stageLabel } from '../../lib/constants.js';
 import { formatBytes, formatDate } from '../../lib/format.js';
-import { Breadcrumb, Button, Card, ErrorState, Field, Loading, StageBadge } from '../../components/ui.jsx';
+import { Breadcrumb, Button, Card, ErrorState, Field, Loading, StageBadge, inputClass } from '../../components/ui.jsx';
 import { changeStatusWithReveal } from '../../lib/changeStatus.js';
 
 export default function ApplicationDetail() {
@@ -18,6 +18,7 @@ export default function ApplicationDetail() {
   const [status, setStatus] = useState('');
   const [rating, setRating] = useState(0);
   const [note, setNote] = useState('');
+  const [editing, setEditing] = useState(null); // { id, body } der Notiz, die gerade bearbeitet wird
 
   useEffect(() => {
     if (data) {
@@ -115,10 +116,32 @@ export default function ApplicationDetail() {
               <Button type="submit" variant="secondary" className="justify-self-start" disabled={!note.trim()}>Notiz speichern</Button>
             </form>
             <ul className="mt-5 divide-y divide-slate-100">
-              {notes.map((n) => (
+                           {notes.map((n) => (
                 <li key={n.id} className="py-3">
                   <p className="text-xs text-slate-500">{n.author ?? 'gelöschte:r Nutzer:in'} · {formatDate(n.created_at, true)}</p>
-                  <p className="mt-1 whitespace-pre-line">{n.body}</p>
+                  {editing?.id === n.id ? (
+                    <form className="mt-2 grid gap-2" onSubmit={async (e) => {
+                      e.preventDefault();
+                      if (await act(() => updateNote(n.id, editing.body), 'Notiz geändert.')) setEditing(null);
+                    }}>
+                      <textarea rows={3} maxLength={2000} value={editing.body} aria-label="Notiz bearbeiten"
+                        onChange={(e) => setEditing({ id: n.id, body: e.target.value })} className={inputClass(false)} />
+                      <div className="flex gap-2">
+                        <Button type="submit" size="sm" disabled={!editing.body.trim()}>Speichern</Button>
+                        <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(null)}>Abbrechen</Button>
+                      </div>
+                    </form>
+                  ) : (
+                    <>
+                      <p className="mt-1 whitespace-pre-line">{n.body}</p>
+                      {n.editable && (
+                        <button type="button" onClick={() => setEditing({ id: n.id, body: n.body })}
+                          className="mt-1 text-xs font-semibold text-brand-700 hover:underline">
+                          Bearbeiten (bis 15 Minuten nach dem Schreiben)
+                        </button>
+                      )}
+                    </>
+                  )}
                 </li>
               ))}
               {notes.length === 0 && <li className="py-3 text-sm text-slate-500">Noch keine Notizen.</li>}

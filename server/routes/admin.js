@@ -249,7 +249,7 @@ router.get('/applications/:id', (req, res) => {
     FROM notes n LEFT JOIN users u ON u.id = n.user_id
     WHERE n.application_id = ?
     ORDER BY n.created_at DESC
-  `).all(row.id);
+  `).all(row.id).map((note) => ({ ...note, editable: canEditNote(note, req.user) }));
 
   const history = db.prepare(`
     SELECT h.from_status, h.to_status, h.changed_at, u.name AS author
@@ -386,6 +386,61 @@ router.get('/pipeline', (req, res) => {
   res.json({ jobs, jobId, columns });
 });
 
+
+
+
+
+
+// ---------- Notizen (E3: alle sehen alle; nur der Verfasser darf 15 Minuten lang korrigieren) ----------
+
+const NOTE_EDIT_MS = 15 * 60 * 1000;
+const NOTE_MAX = 2000;
+
+// Darf dieser Nutzer diese Notiz noch bearbeiten?
+function canEditNote(note, user) {
+  return note.user_id === user.id && Date.now() - Date.parse(note.created_at) < NOTE_EDIT_MS;
+}
+
+// Notiztext prüfen: 1 bis 2.000 Zeichen
+function readNoteBody(body) {
+  const text = String(body ?? '').trim();
+  return text.length >= 1 && text.length <= NOTE_MAX ? text : null;
+}
+
+// Neue Notiz; der Verfasser kommt aus dem Login
+router.post('/applications/:id/notes', (req, res) => {
+  const app = db.prepare('SELECT id FROM applications WHERE id = ?').get(req.params.id);
+  if (!app) {
+    return res.status(404).json({ error: 'Diese Bewerbung existiert nicht (mehr).' });
+  }
+
+  const text = readNoteBody(req.body?.body);
+  if (!text) {
+    return res.status(422).json({ error: `Die Notiz muss 1 bis ${NOTE_MAX} Zeichen lang sein.` });
+  }
+
+  db.prepare('INSERT INTO notes (application_id, user_id, body) VALUES (?, ?, ?)').run(app.id, req.user.id, text);
+  res.status(201).json({ ok: true });
+});
+
+// Notiz korrigieren: nur der Verfasser, nur in den ersten 15 Minuten
+router.put('/notes/:id', (req, res) => {
+  const note = db.prepare('SELECT id, user_id, created_at FROM notes WHERE id = ?').get(req.params.id);
+  if (!note) {
+    return res.status(404).json({ error: 'Notiz nicht gefunden.' });
+  }
+  if (!canEditNote(note, req.user)) {
+    return res.status(403).json({ error: 'Notizen kann nur der Verfasser in den ersten 15 Minuten ändern. Ergänzungen bitte als neue Notiz.' });
+  }
+
+  const text = readNoteBody(req.body?.body);
+  if (!text) {
+    return res.status(422).json({ error: `Die Notiz muss 1 bis ${NOTE_MAX} Zeichen lang sein.` });
+  }
+
+  db.prepare('UPDATE notes SET body = ? WHERE id = ?').run(text, note.id);
+  res.json({ ok: true });
+});
 
 
 

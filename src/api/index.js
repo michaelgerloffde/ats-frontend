@@ -121,8 +121,13 @@ export function rateApplication(id, rating) {
 
 /** → 201 { ok } · 422 */
 export function addNote(id, body) {
-  return mock.addNote(id, body);
-  // return request('POST', `/admin/applications/${id}/notes`, { body: { body } });
+ return request('POST', `/admin/applications/${id}/notes`, { body: { body } });
+}
+
+
+/** nur Verfasser, nur 15 Minuten nach dem Schreiben → { ok } · 403 · 422 */
+export function updateNote(noteId, body) {
+  return request('PUT', `/admin/notes/${noteId}`, { body: { body } });
 }
 
 /** nur Admin → { ok } · 403 */

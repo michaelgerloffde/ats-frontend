@@ -1362,3 +1362,98 @@ Screenshots:
 Meine Erkenntnis:
 
 Commit: "Statuswechsel mit Pipeline-Regeln"
+
+
+B7 Etappe 4: Pipeline-Ansicht angeschlossen
+
+Ziel:
+Die Seite "Pipeline" zeigt die Bewerbungen einer Stelle als Board mit sechs Spalten (Stufen aus E4).
+Verschieben mit denselben Regeln wie in der Detailansicht (Sicherheitsabfrage beim Aufdecken,
+"Eingegangen" gesperrt). Kurz, weil die Bausteine aus Etappe 2 und 3 wiederverwendet werden.
+
+Gebaut:
+1. GET /api/admin/pipeline?job=... in routes/admin.js
+2. api/index.js: getPipeline auf den Server umgestellt
+3. Pipeline.jsx: nutzt changeStatusWithReveal; "Eingegangen" in Karten außerhalb dieser Spalte gesperrt
+
+Erklärungen:
+- Eine Pipeline je Stelle: Bewerbungen vergleicht man sinnvoll nur innerhalb einer Stelle;
+  ein Board für alle wäre bei vielen Bewerbungen unübersichtlich.
+- Entwürfe ausgeschlossen: nicht veröffentlicht -> keine Bewerbungen möglich.
+- Ungültige/fehlende Stelle -> erste Stelle der Liste; jobs[0]?.id ?? null verhindert einen
+  Absturz, wenn es keine Stellen gibt.
+- Object.fromEntries(STAGES.map(...)) baut sechs leere Spalten, damit auch leere Stufen erscheinen.
+- Sortierung: COALESCE(rating, 0) DESC -> beste Bewertung oben, unbewertete (NULL) unten;
+  bei Gleichstand ältere Bewerbung zuerst.
+- presentApplication wie in Liste und Detail -> Anonymität aus E4 gilt automatisch auch hier.
+  Ergebnis der Entscheidung aus Etappe 2, die Regel an einer Stelle zu bündeln.
+- changeStatusWithReveal: Dafür wurde die Sicherheitsabfrage in Etappe 3 in eine eigene Datei
+  gelegt. Ohne sie käme in der Pipeline nur "Bitte bestätigen" ohne Abfrage.
+- Verschieben per Auswahl + Knopf statt Drag & Drop: auch mit der Tastatur bedienbar (barrierefrei).
+
+Getestet:
+- Stellen-Auswahl ohne Entwurf
+- Karten in den richtigen Spalten, anonym bzw. mit Namen
+- bewertete Karten oben, mit Sternen
+- anonyme Karte -> Gespräch: Abfrage; Abbrechen -> bleibt; OK -> wandert, Name sichtbar
+- "Eingegangen" ausgegraut außerhalb dieser Spalte
+- -> Abgesagt: Löschdatum in 6 Monaten (Detail)
+- Verlauf enthält Wechsel aus der Pipeline
+- npm test: 14 von 14 grün
+
+Screenshots:
+Meine Erkenntnis:
+
+Commit: "Pipeline angeschlossen"
+
+
+B7 Etappe 5: Notizen mit Bearbeitungsfrist
+
+Ziel:
+Notizen laufen über den Server, mit den Regeln aus E3:
+- alle Recruiter sehen alle Notizen
+- Verfasser kommt aus dem Login
+- nur der Verfasser darf ändern, und nur in den ersten 15 Minuten (sonst 403)
+- 1 bis 2.000 Zeichen (sonst 422)
+Im Frontend fehlte ein Bearbeiten-Knopf; ergänzt.
+
+Gebaut:
+Server (routes/admin.js):
+1. canEditNote(note, user): Verfasser UND weniger als 15 Minuten alt
+2. readNoteBody(body): Text prüfen (trim, 1-2.000 Zeichen)
+3. POST /api/admin/applications/:id/notes (anlegen, 201)
+4. PUT /api/admin/notes/:id (korrigieren)
+5. Detail-Route: jede Notiz bekommt "editable" für den angemeldeten Nutzer
+Frontend:
+6. api/index.js: addNote umgestellt, neue Funktion updateNote
+7. ApplicationDetail.jsx: Bearbeiten-Knopf nur bei editable, Formular mit Speichern/Abbrechen
+
+Erklärungen:
+- canEditNote an zwei Stellen: in der Detail-Route (Server sagt dem Frontend, ob der Knopf
+  erscheint) und beim Ändern (Server prüft trotzdem, Knopf lässt sich per curl umgehen).
+  "Server schützt, Frontend führt".
+- Date.parse macht aus dem gespeicherten Zeitpunkt Millisekunden, damit man rechnen kann.
+- Warum die 15-Minuten-Frist (E3): Tippfehler korrigierbar; danach ist die Notiz fest und
+  taugt als Nachweis (AGG), was zu welchem Zeitpunkt notiert wurde. Ergänzungen als neue Notiz.
+- readNoteBody entspricht der CHECK-Regel der Tabelle notes (1-2.000 Zeichen).
+- Bewerbung wird vor dem Anlegen geprüft (404 statt technischem Fremdschlüssel-Fehler).
+- canEditNote steht unter der Route, die sie benutzt: function-Deklarationen sind in
+  JavaScript vorab bekannt; NOTE_EDIT_MS wird erst bei einer Anfrage gelesen.
+- Frontend: Zustand "editing" = { id, body } der gerade bearbeiteten Notiz, null = keine.
+  Muss bei den anderen useState stehen, vor den frühen returns (React-Regel: Hooks immer
+  in derselben Reihenfolge).
+- Abgelaufene Frist während des Bearbeitens -> 403-Meldung des Servers erscheint.
+
+Getestet:
+- leere Notiz: Knopf gesperrt
+- Notiz anlegen -> mit "Admin" und Bearbeiten-Knopf
+- Bearbeiten -> Speichern -> geänderter Text; Abbrechen -> unverändert
+- Frist per SQL simuliert (created_at -16 Minuten) -> Knopf verschwindet
+- neue Notiz wieder bearbeitbar, alte fest
+- anderer Recruiter -> 403 (im Browser ab Etappe 6, automatisch in Etappe 7)
+- npm test: 14 von 14 grün
+
+Screenshots:
+Meine Erkenntnis:
+
+Commit: "Notizen mit Bearbeitungsfrist"

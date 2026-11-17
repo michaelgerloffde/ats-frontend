@@ -1527,3 +1527,69 @@ Fehlersuche Login rita2:
 - Lösung: neuer Zugang rita3, Passwort von Hand getippt, Vorschlag ignoriert
 - Erkenntnis: Passwörter liegen nur als Hash vor; auch der Admin kann sie nicht nachsehen.
   "Passwort vergessen/zurücksetzen" wäre eine Ausbaustufe (mit E-Mail-Versand).
+
+
+
+  B7 Etappe 7: Automatische Tests für den Verwaltungsbereich
+
+Ziel: Die Regeln aus E3 (Rechte) und E4 (Pipeline, Anonymität) werden per npm test abgesichert. Darunter sind vier Testfälle aus Deinen Top 10 in E9:
+
+ID	Testfall (E9)	Technik	Erwartet
+T04	neue Bewerbung als Recruiter öffnen	anwendungsfallbasiert	kein Name, keine Kontaktdaten
+T05	Sichtung → zurück auf „neu“	zustandsbasiert, verbotener Übergang	422
+T06	Wechsel auf „abgelehnt“	zustandsbasiert	Löschdatum = heute + 6 Monate
+T08	Recruiter löscht Bewerbung	Sicherheitstest	403
+
+Dazu sechs weitere (V für Verwaltung, laut E9 für den Anhang):
+
+ID	prüft
+V01	Aufdecken nur mit Bestätigung (409 → 200), Daten bleiben nach dem Zurückgehen sichtbar
+V02	Wiederöffnen entfernt das Löschdatum; Verlauf mit Autor „Rita“
+V03	Namenssuche findet keine anonyme Bewerbung, die Nummer schon
+V04	fremde Stelle 403, eigene 200, Admin 200
+V05	Notiz: Verfasser 200, anderer Recruiter 403, nach 16 Minuten 403
+V06	Nutzerliste für Recruiter 403, Selbstsperre 422, Gesperrte sofort 401
+
+
+B7 Etappe 7: Automatische Tests für den Verwaltungsbereich
+
+Ziel:
+Die Regeln aus E3 (Rechte) und E4 (Pipeline, Anonymität) per npm test absichern.
+Vier Testfälle aus den Top 10 (E9): T04, T05, T06, T08; dazu V01-V06 für den Anhang.
+
+Gebaut:
+- server/test/admin.test.js (10 Tests)
+- package.json unverändert: node --test findet die Datei selbst
+
+Neu gegenüber den bisherigen Testdateien:
+- Sitzungen direkt mit createSession statt Login über HTTP:
+  Login rechnet scrypt (absichtlich langsam); der Login ist schon in auth.test.js getestet.
+  Hier geht es um die Rechte danach. Recruiter haben password_hash "unbenutzt".
+- Zwei Recruiter (Rita, Rolf): nötig, um "anderer Recruiter" zu testen (fremde Stelle, fremde Notiz).
+- beforeEach leert auch Notizen, Recruiter und von Tests angelegte Stellen (id > 5);
+  die 5 Start-Stellen bleiben -> jeder Test startet gleich (Unabhängigkeit, Skript S. 101).
+- Hilfsfunktion api(...) für Anfragen mit Cookie und JSON.
+- T06: Datumsvergleich mit Toleranz (< 1 Minute), weil zwischen Server und Test Zeit vergeht.
+- V05: Zeit "vorgespult" (created_at -16 Minuten) statt 15 Minuten zu warten.
+- V03: encodeURIComponent, weil "#" in einer Adresse sonst alles Folgende abschneidet.
+
+Testfälle:
+- T04 (E9, anwendungsfallbasiert): neue Bewerbung als Recruiter -> anonymized, keine E-Mail/kein Nachname
+- T05 (E9, zustandsbasiert, verbotener Übergang): Sichtung -> neu -> 422
+- T06 (E9, zustandsbasiert): abgelehnt -> Löschdatum heute + 6 Monate
+- T08 (E9, Sicherheitstest): Recruiter löscht Bewerbung -> 403, Bewerbung bleibt
+- V01 Aufdecken: ohne Bestätigung 409 (needsReveal), mit 200; nach Zurückgehen weiter sichtbar
+- V02 Wiederöffnen entfernt Löschdatum; Verlauf new -> rejected -> screening, Autor "Rita"
+- V03 Namenssuche findet anonyme Bewerbung nicht, Nummer schon; aufgedeckte per Name
+- V04 fremde Stelle 403; eigene 200; anderer Recruiter auf eigene 403; Admin 200
+- V05 Notiz: Verfasser 200; anderer Recruiter 403; nach 16 Minuten 403
+- V06 Nutzerliste für Recruiter 403; Selbstsperre 422; Gesperrte sofort 401
+
+Ergebnis: 24 von 24 Tests bestanden.
+Damit sind 8 der 10 Top-Testfälle aus E9 automatisiert und bestanden (T01-T08).
+Offen: T09 (SQL-Injection) und T10 (Lasttest) -> B8/B9.
+
+Screenshots: npm test mit 24 grünen Haken
+Meine Erkenntnis:
+
+Commit: "Tests für Verwaltungsbereich ergänzt"

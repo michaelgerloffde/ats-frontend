@@ -74,8 +74,8 @@ export default function Users() {
               </select>
             )}
           </Field>
-          <Field id="password" label="Startpasswort" hint="Mindestens 15 Zeichen." error={errors.password}>
-            {(p) => <input type="password" autoComplete="new-password" value={form.password} onChange={set('password')} {...p} />}
+          <Field id="password" label="Startpasswort" hint="Mindestens 15 Zeichen. Bitte notieren und der Person sicher weitergeben; es kann später nicht mehr angezeigt werden." error={errors.password}>
+           {(p) => <input type="text" autoComplete="off" spellCheck={false} value={form.password} onChange={set('password')} {...p} />}
           </Field>
           <Button type="submit" className="justify-self-start">Zugang anlegen</Button>
         </form>

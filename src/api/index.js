@@ -138,8 +138,7 @@ export function attachmentUrl(attachmentId) {
 
 /** → { jobs, jobId, columns: { new: [...], screening: [...], ... } } */
 export function getPipeline(jobId) {
-  return mock.getPipeline(jobId);
-  // return request('GET', `/admin/pipeline${jobId ? `?job=${jobId}` : ''}`);
+  return request('GET', `/admin/pipeline${jobId ? `?job=${jobId}` : ''}`);
 }
 
 // ---------- Verwaltung: Nutzer:innen (nur Admin) ----------

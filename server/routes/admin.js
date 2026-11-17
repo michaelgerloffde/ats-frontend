@@ -359,4 +359,35 @@ router.post('/applications/:id/rating', (req, res) => {
   }
   res.json({ ok: true });
 });
+
+
+// ---------- Pipeline (Board je Stelle, gleiche Anonymität wie Liste und Detail) ----------
+
+router.get('/pipeline', (req, res) => {
+  // Auswahl: alle Stellen außer Entwürfen (dort gibt es keine Bewerbungen)
+  const jobs = db.prepare(`SELECT id, title FROM jobs WHERE status != 'draft' ORDER BY title`).all();
+
+  // Gewählte Stelle; ohne Angabe die erste aus der Liste
+  const requested = Number(req.query.job);
+  const jobId = jobs.some((job) => job.id === requested) ? requested : (jobs[0]?.id ?? null);
+
+  // Eine leere Spalte je Stufe, dann die Bewerbungen einsortieren (beste Bewertung oben)
+  const columns = Object.fromEntries(STAGES.map((stage) => [stage.key, []]));
+  const rows = db.prepare(`
+    ${APPLICATION_SELECT}
+    WHERE a.job_id = ?
+    ORDER BY COALESCE(a.rating, 0) DESC, a.created_at
+  `).all(jobId);
+
+  for (const row of rows) {
+    columns[row.status].push(presentApplication(row));
+  }
+
+  res.json({ jobs, jobId, columns });
+});
+
+
+
+
+
 export default router;

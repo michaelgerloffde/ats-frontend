@@ -1,5 +1,6 @@
 import { Link, useSearchParams } from 'react-router-dom';
-import { changeApplicationStatus, getPipeline } from '../../api';
+import { getPipeline } from '../../api';
+import { changeStatusWithReveal } from '../../lib/changeStatus.js';
 import { useAsync } from '../../hooks/useAsync.js';
 import { useToast } from '../../context/ToastContext.jsx';
 import { STAGES, stageLabel } from '../../lib/constants.js';
@@ -18,7 +19,7 @@ function Card({ app, column, onMove }) {
       <form className="mt-1 grid grid-cols-[1fr_auto] gap-1.5" onSubmit={(e) => { e.preventDefault(); onMove(app.id, e.currentTarget.elements.status.value); }}>
         <label className="sr-only" htmlFor={`move-${app.id}`}>Verschieben nach</label>
         <select id={`move-${app.id}`} name="status" defaultValue={column} className={`${inputClass(false)} min-w-0 px-2 py-1 text-xs`}>
-          {STAGES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+        {STAGES.map((s) => <option key={s.key} value={s.key} disabled={s.key === 'new' && column !== 'new'}>{s.label}</option>)}
         </select>
         <button type="submit" aria-label="Verschieben" className="rounded-md bg-brand-600 px-2.5 text-white hover:bg-brand-700">→</button>
       </form>
@@ -37,7 +38,7 @@ export default function Pipeline() {
 
   const move = async (appId, status) => {
     try {
-      await changeApplicationStatus(appId, status);
+      await changeStatusWithReveal(appId, status);
       toast(`Status geändert: ${stageLabel(status)}.`);
       reload();
     } catch (err) {

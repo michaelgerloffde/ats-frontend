@@ -80,3 +80,12 @@ export function requireLogin(req, res, next) {
   req.user = user;
   next();
 }
+
+
+// Wächter nur für Admins: muss NACH requireLogin laufen; sonst 403
+export function requireAdmin(req, res, next) {
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ error: 'Das darf nur ein Admin.' });
+  }
+  next();
+}

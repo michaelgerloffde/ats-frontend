@@ -1099,3 +1099,122 @@ Begriffe:
 - Regressionsfähigkeit: Nach jeder Änderung zeigt npm test, ob etwas Bestehendes kaputtgegangen ist.
 
 Commit: "Tests für Login ergänzt"
+
+B7 Etappe 1: Stellenverwaltung an den Server angeschlossen
+
+Ziel:
+Die Seite "Stellen" im Verwaltungsbereich (Liste, Neue Stelle, Bearbeiten, Löschen) läuft über den
+Server statt über den Mock, mit den Rechten aus E3:
+- ansehen: alle angemeldeten Nutzer
+- anlegen und veröffentlichen: Recruiter und Admin, ohne Freigabe
+- bearbeiten und schließen: nur der Ersteller der Stelle oder ein Admin
+- löschen: nur Admin und nur, wenn die Stelle keine Bewerbungen hat
+Keine neue Tabelle, init-db nicht nötig.
+
+Gebaut:
+1. requireAdmin in lib/session.js: zweiter Wächter, nur für Admins.
+2. validateJob in lib/validation.js: Prüfregeln für Stellen.
+3. Fünf Routen in routes/admin.js: GET /jobs, GET /jobs/:id, POST /jobs, PUT /jobs/:id, DELETE /jobs/:id.
+4. Frontend: getAdminJobs, getAdminJob, createJob, updateJob, deleteJob auf den Server umgestellt.
+
+Erklärungen:
+- 401 und 403 sind verschieden:
+  401 = "Wer bist Du?" (nicht angemeldet, requireLogin)
+  403 = "Ich weiß, wer Du bist, aber das darfst Du nicht" (angemeldet, aber ohne Recht, requireAdmin)
+- requireAdmin muss nach requireLogin laufen, weil es req.user braucht. In admin.js ist das
+  automatisch so, weil router.use(requireLogin) ganz oben steht. requireAdmin steht direkt in der
+  Lösch-Route und gilt nur dort.
+- validateJob folgt demselben Muster wie validateApplication aus B4: { errors, values },
+  Fehlertexte je Feld (422). Die erlaubten Werte entsprechen den CHECK-Regeln der Tabelle jobs.
+  Die Datenbank würde falsche Werte auch ablehnen, aber nur mit einem technischen Fehler (500).
+- Stellenliste:
+  - LEFT JOIN statt JOIN: auch Stellen ohne Bewerbungen erscheinen
+  - COUNT zählt alle Bewerbungen je Stelle, SUM(CASE WHEN ... 'new') nur die neuen
+  - "WHERE ? IS NULL OR status = ?": eine Abfrage für "alle" und "gefiltert";
+    unbekannte Filterwerte werden ignoriert
+  - Sortierung: veröffentlichte zuerst, dann zuletzt geändert
+- Anlegen: created_by kommt aus dem Login (req.user.id), nicht aus dem Formular.
+  Sonst könnte jemand mit einem gefälschten Feld eine Stelle unter fremdem Namen anlegen.
+- Bearbeiten (PUT = ersetzen, das Formular schickt alle Felder):
+  Reihenfolge der Prüfungen: gibt es die Stelle (404)? darf der Nutzer (403)? Daten gültig (422)?
+  Rechte werden vor dem Inhalt geprüft. Schließen = Status "closed" im Formular:
+  Stelle verschwindet von der Karriereseite, Bewerbungen bleiben erhalten.
+- Löschen: 409 = "Conflict", die Anfrage widerspricht dem aktuellen Zustand (es gibt Bewerbungen).
+  Der Fremdschlüssel würde das Löschen auch verhindern, aber nur mit technischem Fehler.
+  Die Meldung verweist auf "Geschlossen" als richtigen Weg.
+- Die Startdaten-Stellen haben keinen Ersteller (created_by leer) und können deshalb nur
+  vom Admin bearbeitet werden. Passt zu E3: Stellen ohne Zuständigen übernimmt der Admin.
+
+Getestet (als Admin im Browser):
+- Liste: 5 Stellen, veröffentlichte oben, Entwurf "Teamleitung Lager", Bewerbungszahl stimmt
+- Filter "Entwurf" -> nur Teamleitung Lager
+- Neue Stelle leer -> Fehler unter den Feldern (422)
+- Neue Stelle veröffentlicht -> in der Liste und auf der Karriereseite
+- auf "Geschlossen" gesetzt -> von der Karriereseite verschwunden
+- Stelle ohne Bewerbungen gelöscht; Stelle mit Bewerbung -> Meldung (409)
+- 403 für Recruiter: im Browser erst ab Etappe 6 (Nutzer anlegen), automatisch in Etappe 7
+- npm test: 14 von 14 grün
+
+Quelle: OWASP Top 10:2025, A01 Broken Access Control
+
+Commit: "Stellenverwaltung an den Server angeschlossen"
+
+
+B7 Etappe 1: Stellenverwaltung an den Server angeschlossen
+
+Ziel:
+Die Seite "Stellen" im Verwaltungsbereich (Liste, Neue Stelle, Bearbeiten, Löschen) läuft über den
+Server statt über den Mock, mit den Rechten aus E3:
+- ansehen: alle angemeldeten Nutzer
+- anlegen und veröffentlichen: Recruiter und Admin, ohne Freigabe
+- bearbeiten und schließen: nur der Ersteller der Stelle oder ein Admin
+- löschen: nur Admin und nur, wenn die Stelle keine Bewerbungen hat
+Keine neue Tabelle, init-db nicht nötig.
+
+Gebaut:
+1. requireAdmin in lib/session.js: zweiter Wächter, nur für Admins.
+2. validateJob in lib/validation.js: Prüfregeln für Stellen.
+3. Fünf Routen in routes/admin.js: GET /jobs, GET /jobs/:id, POST /jobs, PUT /jobs/:id, DELETE /jobs/:id.
+4. Frontend: getAdminJobs, getAdminJob, createJob, updateJob, deleteJob auf den Server umgestellt.
+
+Erklärungen:
+- 401 und 403 sind verschieden:
+  401 = "Wer bist Du?" (nicht angemeldet, requireLogin)
+  403 = "Ich weiß, wer Du bist, aber das darfst Du nicht" (angemeldet, aber ohne Recht, requireAdmin)
+- requireAdmin muss nach requireLogin laufen, weil es req.user braucht. In admin.js ist das
+  automatisch so, weil router.use(requireLogin) ganz oben steht. requireAdmin steht direkt in der
+  Lösch-Route und gilt nur dort.
+- validateJob folgt demselben Muster wie validateApplication aus B4: { errors, values },
+  Fehlertexte je Feld (422). Die erlaubten Werte entsprechen den CHECK-Regeln der Tabelle jobs.
+  Die Datenbank würde falsche Werte auch ablehnen, aber nur mit einem technischen Fehler (500).
+- Stellenliste:
+  - LEFT JOIN statt JOIN: auch Stellen ohne Bewerbungen erscheinen
+  - COUNT zählt alle Bewerbungen je Stelle, SUM(CASE WHEN ... 'new') nur die neuen
+  - "WHERE ? IS NULL OR status = ?": eine Abfrage für "alle" und "gefiltert";
+    unbekannte Filterwerte werden ignoriert
+  - Sortierung: veröffentlichte zuerst, dann zuletzt geändert
+- Anlegen: created_by kommt aus dem Login (req.user.id), nicht aus dem Formular.
+  Sonst könnte jemand mit einem gefälschten Feld eine Stelle unter fremdem Namen anlegen.
+- Bearbeiten (PUT = ersetzen, das Formular schickt alle Felder):
+  Reihenfolge der Prüfungen: gibt es die Stelle (404)? darf der Nutzer (403)? Daten gültig (422)?
+  Rechte werden vor dem Inhalt geprüft. Schließen = Status "closed" im Formular:
+  Stelle verschwindet von der Karriereseite, Bewerbungen bleiben erhalten.
+- Löschen: 409 = "Conflict", die Anfrage widerspricht dem aktuellen Zustand (es gibt Bewerbungen).
+  Der Fremdschlüssel würde das Löschen auch verhindern, aber nur mit technischem Fehler.
+  Die Meldung verweist auf "Geschlossen" als richtigen Weg.
+- Die Startdaten-Stellen haben keinen Ersteller (created_by leer) und können deshalb nur
+  vom Admin bearbeitet werden. Passt zu E3: Stellen ohne Zuständigen übernimmt der Admin.
+
+Getestet (als Admin im Browser):
+- Liste: 5 Stellen, veröffentlichte oben, Entwurf "Teamleitung Lager", Bewerbungszahl stimmt
+- Filter "Entwurf" -> nur Teamleitung Lager
+- Neue Stelle leer -> Fehler unter den Feldern (422)
+- Neue Stelle veröffentlicht -> in der Liste und auf der Karriereseite
+- auf "Geschlossen" gesetzt -> von der Karriereseite verschwunden
+- Stelle ohne Bewerbungen gelöscht; Stelle mit Bewerbung -> Meldung (409)
+- 403 für Recruiter: im Browser erst ab Etappe 6 (Nutzer anlegen), automatisch in Etappe 7
+- npm test: 14 von 14 grün
+
+Quelle: OWASP Top 10:2025, A01 Broken Access Control
+
+Commit: "Stellenverwaltung an den Server angeschlossen"

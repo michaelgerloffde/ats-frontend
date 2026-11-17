@@ -48,3 +48,32 @@ export function validateApplication(fields, file) {
 function isPdf(buffer) {
   return buffer.length >= 5 && buffer.subarray(0, 5).toString('latin1') === '%PDF-';
 }
+
+
+// Erlaubte Werte für Stellen (gleich wie die CHECK-Regeln in init-db.js)
+const EMPLOYMENT_TYPES = ['Vollzeit', 'Teilzeit', 'Werkstudium', 'Ausbildung'];
+const JOB_STATUSES = ['draft', 'published', 'closed'];
+
+// Stelle prüfen: gibt Fehler und bereinigte Werte zurück
+export function validateJob(fields) {
+  const values = {};
+  for (const key of ['title', 'department', 'location', 'employment_type', 'description', 'requirements', 'status']) {
+    values[key] = String(fields?.[key] ?? '').trim();
+  }
+
+  const errors = {};
+  for (const [key, max] of [['title', 150], ['department', 100], ['location', 100]]) {
+    if (!values[key] || values[key].length > max) {
+      errors[key] = `Pflichtfeld, höchstens ${max} Zeichen.`;
+    }
+  }
+  for (const key of ['description', 'requirements']) {
+    if (values[key].length < 20 || values[key].length > 10000) {
+      errors[key] = 'Bitte zwischen 20 und 10.000 Zeichen.';
+    }
+  }
+  if (!EMPLOYMENT_TYPES.includes(values.employment_type)) errors.employment_type = 'Ungültige Auswahl.';
+  if (!JOB_STATUSES.includes(values.status)) errors.status = 'Ungültige Auswahl.';
+
+  return { errors, values };
+}

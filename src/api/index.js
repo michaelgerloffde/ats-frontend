@@ -74,32 +74,27 @@ export function getDashboard() {
 
 /** status: '' | 'draft' | 'published' | 'closed' → { jobs } (mit app_count, new_count) */
 export function getAdminJobs(status) {
-  return mock.getAdminJobs(status);
-  // return request('GET', `/admin/jobs${status ? `?status=${status}` : ''}`);
+  return request('GET', `/admin/jobs${status ? `?status=${status}` : ''}`);
 }
 
 /** → { job } · 404 */
 export function getAdminJob(id) {
-  return mock.getAdminJob(id);
-  // return request('GET', `/admin/jobs/${id}`);
+  return request('GET', `/admin/jobs/${id}`);
 }
 
 /** → 201 { id } · 422 { errors } */
 export function createJob(job) {
-  return mock.createJob(job);
-  // return request('POST', '/admin/jobs', { body: job });
+  return request('POST', '/admin/jobs', { body: job });
 }
 
 /** → { ok } · 422 { errors } · 404 */
 export function updateJob(id, job) {
-  return mock.updateJob(id, job);
-  // return request('PUT', `/admin/jobs/${id}`, { body: job });
+ return request('PUT', `/admin/jobs/${id}`, { body: job });
 }
 
 /** nur Admin → { ok } · 403 · 409 (hat noch Bewerbungen) */
 export function deleteJob(id) {
-  return mock.deleteJob(id);
-  // return request('DELETE', `/admin/jobs/${id}`);
+   return request('DELETE', `/admin/jobs/${id}`);
 }
 
 // ---------- Verwaltung: Bewerbungen ----------

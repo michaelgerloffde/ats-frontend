@@ -178,6 +178,7 @@ export default function Apply() {
                 id="cv"
                 label={`Lebenslauf (PDF, max. ${formatBytes(MAX_UPLOAD_BYTES)}) *`}
                 error={errors.cv}
+                hint="Für eine faire, anonyme Vorauswahl lade Deinen Lebenslauf bitte ohne Namen, Foto, Geburtsdatum und Adresse hoch. Deine Kontaktdaten kennen wir aus dem Formular."
               >
                 {(p) => (
                   <input

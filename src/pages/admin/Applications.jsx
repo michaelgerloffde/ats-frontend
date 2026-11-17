@@ -23,7 +23,7 @@ export default function Applications() {
 
       <form role="search" onSubmit={(e) => { e.preventDefault(); setParams(Object.fromEntries(Object.entries(form).filter(([, v]) => v))); }}
         className="mb-4 grid gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-[2fr_2fr_1fr_auto] md:items-end">
-        <Field id="q" label="Name oder E-Mail">
+        <Field id="q" label="NUmmer, Name oder E-Mail">
           {(p) => <input type="search" value={form.q} onChange={set('q')} {...p} />}
         </Field>
         <Field id="job" label="Stelle">

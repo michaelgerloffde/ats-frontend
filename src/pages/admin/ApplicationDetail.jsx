@@ -72,8 +72,7 @@ export default function ApplicationDetail() {
             <h2 className="mb-3 font-bold">Kontakt</h2>
             {app.anonymized ? (
               <p className="rounded-lg bg-blue-50 p-3 text-sm text-blue-900">
-                Anonyme Vorsichtung: Name und Kontaktdaten werden angezeigt, sobald die Bewerbung in „In Prüfung“ verschoben wird.
-                Bitte bewerte zunächst nur die Qualifikation.
+               Anonyme Vorauswahl: Name und Kontaktdaten werden erst angezeigt, wenn die Bewerbung nach Bestätigung ins Gespräch wechselt. Bitte bewerte zunächst nur die Qualifikation.
               </p>
             ) : (
               <dl className="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-1.5 text-sm">
@@ -82,8 +81,7 @@ export default function ApplicationDetail() {
               </dl>
             )}
             <dl className="mt-3 grid grid-cols-[8rem_1fr] gap-x-4 gap-y-1.5 text-sm">
-              <dt className="text-slate-500">Einwilligung</dt><dd>{formatDate(app.consent_at, true)}</dd>
-              <dt className="text-slate-500">Talentpool</dt><dd>{app.talent_pool ? 'Ja (24 Monate)' : 'Nein'}</dd>
+              <dt className="text-slate-500">Datenschutz</dt><dd>Hinweise gelesen am {formatDate(app.privacy_ack_at, true)}</dd>
               <dt className="text-slate-500">Löschung am</dt><dd>{app.delete_after ? formatDate(app.delete_after) : 'wird beim Abschluss festgelegt'}</dd>
             </dl>
           </Card>
@@ -94,7 +92,8 @@ export default function ApplicationDetail() {
               {attachments.map((f) => (
                 <li key={f.id}>
                   <button type="button" onClick={() => download(f.id)} className="font-medium text-brand-700 underline-offset-2 hover:underline">Lebenslauf öffnen</button>
-                  <span className="ml-2 text-slate-500">(PDF, {formatBytes(f.size)})</span>
+                  <span className="ml-2 text-slate-500">(PDF, {formatBytes(f.size)})</span> 
+                   {app.anonymized && <span className="mt-1 block text-xs text-amber-700">Kann persönliche Daten enthalten. Öffnen nur zur Bewertung der Qualifikation.</span>}
                 </li>
               ))}
             </ul>

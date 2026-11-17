@@ -1218,3 +1218,81 @@ Getestet (als Admin im Browser):
 Quelle: OWASP Top 10:2025, A01 Broken Access Control
 
 Commit: "Stellenverwaltung an den Server angeschlossen"
+
+
+
+B7 Etappe 2: Bewerbungsliste, Detail und PDF-Download angeschlossen
+
+Ziel:
+Die Seite "Bewerbungen" (Liste, Detail) und der Lebenslauf-Download laufen über den Server.
+Umgesetzt mit den Entscheidungen aus E3, E4 und der neuen Abwägung zur Anonymität:
+- alle Recruiter sehen alle Bewerbungen (E3)
+- anonym bis zum bestätigten Aufdecken (E4)
+- Suche: Nummer immer, Name/E-Mail nur bei aufgedeckten Bewerbungen (neu entschieden)
+- PDF auch anonym herunterladbar, mit Hinweis; Hinweis im Bewerbungsformular (neu entschieden, Variante A)
+
+Neue Entscheidungen (Lücken im Konzept E4 erkannt):
+1. Lebenslauf und Anonymität:
+   Im PDF stehen meist Name und Kontaktdaten, Öffnen hebt die Anonymität faktisch auf.
+   Der Lebenslauf ist für die Bewertung aber zwingend nötig.
+   Erkenntnis: Für die Zuordnung braucht es keinen Namen im PDF, die macht das System über die
+   Bewerbungs-ID; die Kontaktdaten stehen schon im Formular.
+   Entschieden (A): Hinweis im Formular, den Lebenslauf ohne Namen, Foto, Geburtsdatum und Adresse
+   hochzuladen. Grenze: Das ist eine Bitte, kein Zwang; das System kann es nicht prüfen.
+   Verworfen: PDF erst nach dem Aufdecken (zu wenig Information für die Vorauswahl),
+   normaler Lebenslauf ohne Hinweis (Anonymität nur auf dem Bildschirm).
+2. Suche und Anonymität:
+   Eine Namenssuche, die auch anonyme Bewerbungen findet, würde die Anonymität umgehen.
+   Entschieden: Nummer findet jede Bewerbung, Name/E-Mail nur aufgedeckte.
+   Begründung (eigener Anwendungsfall): In der anonymen Phase arbeitet man über Stelle + Status +
+   Nummer. Den Namen kennt man erst nach dem Aufdecken, z. B. zur Vorbereitung auf das Gespräch,
+   dann findet ihn die Suche.
+
+Gebaut (server/routes/admin.js):
+1. presentApplication(row): zentrale Stelle für die Anonymität.
+   Ohne revealed_at -> nur "Bewerbung #0001", keine Namen, keine E-Mail, kein Telefon.
+2. APPLICATION_SELECT: gemeinsamer Teil der Abfragen (Bewerbung + Stelle + Bewerber).
+3. GET /api/admin/applications: Liste mit Filtern (Stelle, Status, Suche), 10 pro Seite.
+4. GET /api/admin/applications/:id: Detail mit Anhängen, Notizen und Verlauf.
+5. GET /api/admin/attachments/:id: Lebenslauf-Download.
+Frontend:
+6. api/index.js: getApplications, getApplication, attachmentUrl auf den Server umgestellt.
+7. Texte an das Konzept angepasst (Applications.jsx, ApplicationDetail.jsx, Apply.jsx).
+
+Erklärungen:
+- Anonym heißt: Die Daten verlassen den Server nicht. Nur im Frontend ausblenden reicht nicht,
+  weil man die Antwort in den Entwicklertools sehen könnte. Deshalb liefert presentApplication
+  in der anonymen Phase first_name, last_name, email, phone gar nicht erst aus.
+- Alle Routen geben Bewerbungen nur über presentApplication heraus. Die Regel aus E4 steht an
+  einer Stelle und kann in keiner Route vergessen werden (auch nicht später in der Pipeline).
+- Filter dynamisch zusammengebaut (conditions/params) wie bei der Stellensuche in B4.
+  Werte nur über ? in der Abfrage -> Schutz vor SQL-Injection (Sicherheitstest T09).
+- Suche: /^#?\d+$/ erkennt eine Nummer (auch "#0042"). Sonst LIKE '%...%' auf Name + E-Mail,
+  aber nur mit "revealed_at IS NOT NULL". || hängt in SQL Texte aneinander.
+- Seitenaufteilung: erst COUNT(*) für die Gesamtzahl, dann LIMIT 10 OFFSET ... für die Seite.
+- Detail: Notizen und Verlauf mit LEFT JOIN users, damit der Name des Recruiters erscheint.
+  LEFT JOIN, weil der erste Verlaufseintrag ("neu") keinen Recruiter hat -> "Bewerber:in".
+- Download:
+  - nur mit Login (Route liegt in admin.js), Ordner uploads nicht öffentlich (E6)
+  - res.download setzt "Content-Disposition: attachment": Der Browser speichert die Datei,
+    statt sie anzuzeigen (Vorsicht bei möglichem Schadcode in PDFs, siehe B4)
+  - neutraler Dateiname "Bewerbung-0001-Lebenslauf.pdf": Der Originalname enthält oft den Namen
+    und würde die Anonymität schon beim Speichern aufheben
+- Frontend-Texte stammten noch aus dem Mock ("anonym nur bei neu", "Einwilligung", "Talentpool")
+  und widersprachen dem Konzept (E4 anonym auch in der Sichtung, E5 keine Einwilligung,
+  Talentpool Won't). Angepasst, damit Oberfläche und Konzept zusammenpassen.
+
+Getestet:
+- Liste: alle Bewerbungen als "Bewerbung #000..." ohne Namen
+- Suche "Anna" (anonym) -> kein Treffer; Suche "2" bzw. "#0002" -> genau diese Bewerbung
+- Filter nach Stelle und Status
+- Detail: Hinweiskasten, keine Kontaktdaten, "Hinweise gelesen am", Hinweis am Download
+- Download: Datei heißt Bewerbung-000...-Lebenslauf.pdf
+- Entwicklertools -> Network -> Response: keine email, kein first_name
+- Namenssuche bei aufgedeckten Bewerbungen: erst nach Etappe 3 im Browser testbar
+- npm test: 14 von 14 grün
+
+Screenshots:
+Meine Erkenntnis:
+
+Commit: "Bewerbungsliste und Detail angeschlossen"

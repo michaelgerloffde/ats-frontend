@@ -101,14 +101,12 @@ export function deleteJob(id) {
 
 /** filters: { job, status, q, page } → { applications, pagination, jobs } */
 export function getApplications(filters) {
-  return mock.getApplications(filters);
-  // return request('GET', `/admin/applications?${new URLSearchParams(filters)}`);
+  return request('GET', `/admin/applications?${new URLSearchParams(filters)}`);
 }
 
 /** → { application, attachments, notes, history } · 404 */
 export function getApplication(id) {
-  return mock.getApplication(id);
-  // return request('GET', `/admin/applications/${id}`);
+  return request('GET', `/admin/applications/${id}`);
 }
 
 /** → { ok } · 422 unbekannter Status */
@@ -137,8 +135,7 @@ export function deleteApplication(id) {
 
 /** Link zum Herunterladen des Lebenslaufs (oder null, wenn im Mock keine Datei vorliegt) */
 export function attachmentUrl(attachmentId) {
-  return mock.attachmentUrl(attachmentId);
-  // return `/api/admin/attachments/${attachmentId}`;
+ return `/api/admin/attachments/${attachmentId}`;
 }
 
 /** → { jobs, jobId, columns: { new: [...], screening: [...], ... } } */

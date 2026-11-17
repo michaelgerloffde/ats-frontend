@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { Router } from 'express';
 import { db } from '../db.js';
 import { requireAdmin, requireLogin } from '../lib/session.js';
@@ -5,6 +6,46 @@ import { validateJob } from '../lib/validation.js';
 import { STAGES } from '../lib/stages.js';
 
 const router = Router();
+
+
+// Gleicher Ordner wie beim Hochladen (routes/public.js)
+const UPLOAD_DIR = process.env.UPLOAD_DIR ?? path.join('data', 'uploads');
+const PER_PAGE = 10;
+
+// Bewerbung für die Verwaltung aufbereiten: Name und Kontaktdaten erst nach dem Aufdecken (E4)
+function presentApplication(row) {
+  const base = {
+    id: row.id,
+    job_id: row.job_id,
+    job_title: row.job_title,
+    status: row.status,
+    rating: row.rating,
+    cover_letter: row.cover_letter,
+    privacy_ack_at: row.privacy_ack_at,
+    delete_after: row.delete_after,
+    created_at: row.created_at,
+  };
+  if (!row.revealed_at) {
+    return { ...base, anonymized: true, display_name: `Bewerbung #${String(row.id).padStart(4, '0')}` };
+  }
+  return {
+    ...base,
+    anonymized: false,
+    display_name: `${row.first_name} ${row.last_name}`,
+    first_name: row.first_name,
+    last_name: row.last_name,
+    email: row.email,
+    phone: row.phone,
+  };
+}
+
+// Gemeinsamer Teil der Abfragen: Bewerbung mit Stelle und Bewerber
+const APPLICATION_SELECT = `
+  SELECT a.*, j.title AS job_title, c.first_name, c.last_name, c.email, c.phone
+  FROM applications a
+  JOIN jobs j ON j.id = a.job_id
+  JOIN candidates c ON c.id = a.candidate_id
+`;
 
 // Alle Routen in dieser Datei nur mit Login (E3)
 router.use(requireLogin);
@@ -139,6 +180,98 @@ router.delete('/jobs/:id', requireAdmin, (req, res) => {
 
   db.prepare('DELETE FROM jobs WHERE id = ?').run(job.id);
   res.json({ ok: true });
+});
+
+
+// ---------- Bewerbungen (E3: alle Recruiter sehen alle; E4: anonym bis zum Aufdecken) ----------
+
+// Bewerbungsliste mit Filtern nach Stelle, Status und Suche; 10 pro Seite
+router.get('/applications', (req, res) => {
+  const conditions = [];
+  const params = [];
+
+  if (req.query.job) {
+    conditions.push('a.job_id = ?');
+    params.push(Number(req.query.job));
+  }
+  if (STAGES.some((stage) => stage.key === req.query.status)) {
+    conditions.push('a.status = ?');
+    params.push(req.query.status);
+  }
+
+  // Suche: Nummer bei allen Bewerbungen, Name/E-Mail nur bei aufgedeckten (sonst wäre die Anonymität umgangen)
+  const q = String(req.query.q ?? '').trim();
+  if (/^#?\d+$/.test(q)) {
+    conditions.push('a.id = ?');
+    params.push(Number(q.replace('#', '')));
+  } else if (q) {
+    conditions.push(`a.revealed_at IS NOT NULL
+      AND (c.first_name || ' ' || c.last_name || ' ' || c.email) LIKE ?`);
+    params.push(`%${q}%`);
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  const { total } = db.prepare(`
+    SELECT COUNT(*) AS total
+    FROM applications a JOIN candidates c ON c.id = a.candidate_id
+    ${where}
+  `).get(...params);
+
+  const pages = Math.max(1, Math.ceil(total / PER_PAGE));
+  const page = Math.min(Math.max(1, Number(req.query.page) || 1), pages);
+
+  const applications = db.prepare(`
+    ${APPLICATION_SELECT}
+    ${where}
+    ORDER BY a.created_at DESC
+    LIMIT ? OFFSET ?
+  `).all(...params, PER_PAGE, (page - 1) * PER_PAGE).map(presentApplication);
+
+  const jobs = db.prepare('SELECT id, title FROM jobs ORDER BY title').all();
+
+  res.json({ applications, pagination: { page, pages, total }, jobs });
+});
+
+// Eine Bewerbung mit Anhängen, Notizen und Verlauf
+router.get('/applications/:id', (req, res) => {
+  const row = db.prepare(`${APPLICATION_SELECT} WHERE a.id = ?`).get(req.params.id);
+  if (!row) {
+    return res.status(404).json({ error: 'Diese Bewerbung existiert nicht (mehr).' });
+  }
+
+  const attachments = db.prepare(`
+    SELECT id, size_bytes AS size FROM attachments WHERE application_id = ?
+  `).all(row.id);
+
+  const notes = db.prepare(`
+    SELECT n.id, n.body, n.created_at, n.user_id, u.name AS author
+    FROM notes n LEFT JOIN users u ON u.id = n.user_id
+    WHERE n.application_id = ?
+    ORDER BY n.created_at DESC
+  `).all(row.id);
+
+  const history = db.prepare(`
+    SELECT h.from_status, h.to_status, h.changed_at, u.name AS author
+    FROM status_history h LEFT JOIN users u ON u.id = h.user_id
+    WHERE h.application_id = ?
+    ORDER BY h.changed_at, h.id
+  `).all(row.id);
+
+  res.json({ application: presentApplication(row), attachments, notes, history });
+});
+
+// Lebenslauf herunterladen: nur mit Login, immer als Download, neutraler Dateiname
+router.get('/attachments/:id', (req, res) => {
+  const file = db.prepare(`
+    SELECT stored_name, application_id FROM attachments WHERE id = ?
+  `).get(req.params.id);
+  if (!file) {
+    return res.status(404).json({ error: 'Datei nicht gefunden.' });
+  }
+
+  const downloadName = `Bewerbung-${String(file.application_id).padStart(4, '0')}-Lebenslauf.pdf`;
+  res.download(path.resolve(UPLOAD_DIR, file.stored_name), downloadName);
 });
 
 export default router;

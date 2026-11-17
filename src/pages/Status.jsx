@@ -98,7 +98,7 @@ export default function Status() {
 
       <section className="mt-10 rounded-xl border border-red-200 bg-red-50 p-5">
         <h2 className="font-bold">Bewerbung zurückziehen</h2>
-        <p className="mt-1 text-slate-700">Du kannst Deine Einwilligung jederzeit zurückziehen. Dann löschen wir sofort alle Deine Daten und Unterlagen. Das lässt sich nicht rückgängig machen.</p>
+        <p className="mt-1 text-slate-700">Du kannst Deine Bewerbung jederzeit zurückziehen. Dann löschen wir sofort alle Deine Daten und Unterlagen. Das lässt sich nicht rückgängig machen.</p>
         <form onSubmit={withdraw} className="mt-4 grid gap-3">
           <label className="flex gap-3">
             <input type="checkbox" checked={confirm} onChange={(e) => setConfirm(e.target.checked)} className="mt-1 h-4 w-4 accent-red-700" />

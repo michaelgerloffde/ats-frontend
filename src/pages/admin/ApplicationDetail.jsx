@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { addNote, attachmentUrl, changeApplicationStatus, deleteApplication, getApplication, rateApplication } from '../../api';
+import { addNote, attachmentUrl, deleteApplication, getApplication, rateApplication } from '../../api';
 import { useAsync } from '../../hooks/useAsync.js';
 import { useSession } from '../../context/SessionContext.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
 import { STAGES, stageLabel } from '../../lib/constants.js';
 import { formatBytes, formatDate } from '../../lib/format.js';
 import { Breadcrumb, Button, Card, ErrorState, Field, Loading, StageBadge } from '../../components/ui.jsx';
+import { changeStatusWithReveal } from '../../lib/changeStatus.js';
 
 export default function ApplicationDetail() {
   const { id } = useParams();
@@ -128,11 +129,11 @@ export default function ApplicationDetail() {
         <aside className="grid gap-5">
           <Card>
             <h2 className="mb-3 font-bold">Status</h2>
-            <form className="grid gap-3" onSubmit={(e) => { e.preventDefault(); act(() => changeApplicationStatus(id, status), `Status geändert: ${stageLabel(status)}.`); }}>
+            <form className="grid gap-3" onSubmit={(e) => { e.preventDefault(); act(() => changeStatusWithReveal(id, status), `Status geändert: ${stageLabel(status)}.`); }}>
               <Field id="status" label="Verschieben nach">
                 {(p) => (
                   <select value={status} onChange={(e) => setStatus(e.target.value)} {...p}>
-                    {STAGES.map((s) => <option key={s.key} value={s.key}>{s.label}{s.final ? ' (Abschluss)' : ''}</option>)}
+                   {STAGES.map((s) => <option key={s.key} value={s.key} disabled={s.key === 'new' && app.status !== 'new'}>{s.label}{s.final ? ' (Abschluss)' : ''}</option>)}
                   </select>
                 )}
               </Field>

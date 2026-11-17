@@ -1296,3 +1296,69 @@ Screenshots:
 Meine Erkenntnis:
 
 Commit: "Bewerbungsliste und Detail angeschlossen"
+B7 Etappe 3: Statuswechsel mit Aufdecken, Löschfrist und Bewertung
+
+Ziel:
+Das Herzstück der Pipeline aus E4. Der Server setzt beim Statuswechsel alle Regeln aus dem
+Zustandsdiagramm durch:
+- Wechsel zwischen beliebigen Stufen, auch zurück
+- zurück auf "neu" gesperrt (422)
+- Ablehnen auch anonym aus "neu"
+- erster Wechsel in Gespräch/Angebot/eingestellt: nur mit Bestätigung, dann Daten sichtbar
+- Daten bleiben sichtbar, auch nach dem Zurückgehen
+- eingestellt/abgelehnt: Löschdatum heute + 6 Monate; Wiederöffnen entfernt es
+- jeder Wechsel im Verlauf: von, nach, wer, wann
+- Bewerber sieht die neue Stufe über die Statusseite (B5), ohne Recruiter-Namen
+
+Gebaut:
+Server (routes/admin.js):
+1. POST /api/admin/applications/:id/status
+2. POST /api/admin/applications/:id/rating
+Frontend:
+3. api/index.js: changeApplicationStatus mit drittem Wert confirmReveal; rateApplication umgestellt
+4. src/lib/changeStatus.js: changeStatusWithReveal mit der Sicherheitsabfrage aus E4
+5. ApplicationDetail.jsx: nutzt changeStatusWithReveal; "Eingegangen" ausgegraut, sobald weiter
+
+Erklärungen:
+- Drei Konstanten (REVEAL_STAGES, FINAL_STAGES, RETENTION_MONTHS): Regeln aus E4/E5 stehen als
+  Namen im Code; eine Änderung der Frist ist eine Zeile.
+- Reihenfolge der Prüfungen: Bewerbung vorhanden (404) -> Status bekannt (422) -> gleicher Status
+  (ok, kein doppelter Verlaufseintrag bei Doppelklick) -> zurück auf neu (422) -> Aufdecken (409).
+- Regeln im Server, nicht nur im Frontend: Den Browser kann man umgehen (curl), den Server nicht.
+- Aufdecken als Zwei-Schritt-Verfahren:
+  1. Frontend schickt den Wechsel
+  2. Server antwortet 409 "Conflict" mit needsReveal: true, wenn noch nicht aufgedeckt
+  3. Frontend zeigt die Sicherheitsabfrage aus E4
+  4. nach "OK" dieselbe Anfrage mit confirmReveal: true
+  Der Server entscheidet, wann bestätigt werden muss; Aufdecken passiert nie ohne Zustimmung.
+  Nur beim ersten Mal (solange revealed_at leer ist).
+- revealed_at wird nur beim Aufdecken gesetzt und nie wieder geleert
+  (CASE WHEN ... ELSE revealed_at END) -> "bleibt sichtbar, auch nach dem Zurückgehen".
+- Löschfrist: setMonth(+6) bei eingestellt/abgelehnt; bei jedem anderen Ziel null
+  -> deckt das Wiederöffnen ab (E4: Löschdatum wird entfernt).
+- Transaktion: Statuswechsel und Verlaufseintrag gehören zusammen (wie beim Speichern in B4).
+- user_id aus dem Login (req.user.id), nicht aus dem Formular. Bewerber sieht den Namen nicht,
+  weil die Statusseite nur Stufe und Datum ausliefert.
+- Bewertung: Number.isInteger lehnt auch 4.5 oder Text ab. result.changes = Anzahl geänderter
+  Zeilen; 0 heißt, die Bewerbung gibt es nicht (404), ohne zusätzliche Abfrage.
+- changeStatusWithReveal in eigener Datei, weil Detail und Pipeline (Etappe 4) sie brauchen.
+  Abbrechen -> Fehlermeldung statt fälschlich "Status geändert".
+- "Eingegangen" im Frontend ausgegraut: Server schützt, Frontend führt (wie die doppelte
+  Prüfung im Bewerbungsformular in B4).
+
+Getestet:
+- neu -> In Prüfung: ok, anonym
+- "Eingegangen" ausgegraut
+- -> Gespräch: Abfrage; Abbrechen -> Meldung, anonym; OK -> Name, E-Mail, Telefon sichtbar
+- Namenssuche findet die Bewerbung jetzt (Test aus Etappe 2)
+- -> zurück In Prüfung: Name bleibt, keine erneute Abfrage
+- -> Abgesagt: Löschdatum in 6 Monaten; -> Angebot: Löschdatum entfernt
+- Verlauf mit "Admin" als Autor; Statusseite des Bewerbers ohne Autor
+- Bewertung bleibt nach Neuladen erhalten
+- Dashboard-Zahlen stimmen
+- npm test: 14 von 14 grün
+
+Screenshots:
+Meine Erkenntnis:
+
+Commit: "Statuswechsel mit Pipeline-Regeln"

@@ -274,4 +274,89 @@ router.get('/attachments/:id', (req, res) => {
   res.download(path.resolve(UPLOAD_DIR, file.stored_name), downloadName);
 });
 
+// ---------- Statuswechsel und Bewertung (E4) ----------
+
+const REVEAL_STAGES = ['interview', 'offer', 'hired'];   // ab hier sind Name und Kontaktdaten nötig
+const FINAL_STAGES = ['hired', 'rejected'];              // Abschluss: Löschfrist beginnt
+const RETENTION_MONTHS = 6;                              // E5: Löschung 6 Monate nach Abschluss
+
+// Status ändern: Regeln aus E4, Verlauf, Aufdecken, Löschfrist
+router.post('/applications/:id/status', (req, res) => {
+  const app = db.prepare('SELECT id, status, revealed_at FROM applications WHERE id = ?').get(req.params.id);
+  if (!app) {
+    return res.status(404).json({ error: 'Diese Bewerbung existiert nicht (mehr).' });
+  }
+
+  const to = req.body?.status;
+  if (!STAGES.some((stage) => stage.key === to)) {
+    return res.status(422).json({ error: 'Unbekannter Status.' });
+  }
+  if (to === app.status) {
+    return res.json({ ok: true });
+  }
+
+  // Regel 3: zurück auf "neu" ist gesperrt
+  if (to === 'new') {
+    return res.status(422).json({ error: 'Zurück auf „Eingegangen“ ist nicht möglich: Die Bewerbung wurde bereits gesichtet.' });
+  }
+
+  // Regel 6: erster Wechsel ins Gespräch oder später -> Aufdecken nur mit Bestätigung
+  const mustReveal = REVEAL_STAGES.includes(to) && !app.revealed_at;
+  if (mustReveal && req.body?.confirmReveal !== true) {
+    return res.status(409).json({
+      error: 'Dieser Schritt deckt Name und Kontaktdaten auf. Bitte bestätigen.',
+      needsReveal: true,
+    });
+  }
+
+  // Löschfrist: bei Abschluss heute + 6 Monate, beim Wiederöffnen entfernen (E4/E5)
+  let deleteAfter = null;
+  if (FINAL_STAGES.includes(to)) {
+    const date = new Date();
+    date.setMonth(date.getMonth() + RETENTION_MONTHS);
+    deleteAfter = date.toISOString();
+  }
+
+  db.exec('BEGIN');
+  try {
+    db.prepare(`
+      UPDATE applications
+      SET status = ?,
+          delete_after = ?,
+          revealed_at = CASE WHEN ? THEN strftime('%Y-%m-%dT%H:%M:%fZ', 'now') ELSE revealed_at END,
+          updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+      WHERE id = ?
+    `).run(to, deleteAfter, mustReveal ? 1 : 0, app.id);
+
+    // Regel 7: jeder Wechsel kommt in den Verlauf (von, nach, wer, wann)
+    db.prepare(`
+      INSERT INTO status_history (application_id, from_status, to_status, user_id)
+      VALUES (?, ?, ?, ?)
+    `).run(app.id, app.status, to, req.user.id);
+
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+
+  res.json({ ok: true });
+});
+
+// Bewertung 1 bis 5 speichern
+router.post('/applications/:id/rating', (req, res) => {
+  const rating = Number(req.body?.rating);
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    return res.status(422).json({ error: 'Bitte eine Bewertung von 1 bis 5 wählen.' });
+  }
+
+  const result = db.prepare(`
+    UPDATE applications SET rating = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?
+  `).run(rating, req.params.id);
+
+  if (result.changes === 0) {
+    return res.status(404).json({ error: 'Diese Bewerbung existiert nicht (mehr).' });
+  }
+  res.json({ ok: true });
+});
 export default router;

@@ -109,16 +109,14 @@ export function getApplication(id) {
   return request('GET', `/admin/applications/${id}`);
 }
 
-/** → { ok } · 422 unbekannter Status */
-export function changeApplicationStatus(id, status) {
-  return mock.changeApplicationStatus(id, status);
-  // return request('POST', `/admin/applications/${id}/status`, { body: { status } });
+/** → { ok } · 422 unbekannter/gesperrter Status · 409 { needsReveal } Aufdecken muss bestätigt werden */
+export function changeApplicationStatus(id, status, confirmReveal = false) {
+  return request('POST', `/admin/applications/${id}/status`, { body: { status, confirmReveal } });
 }
 
 /** rating: 1–5 → { ok } */
 export function rateApplication(id, rating) {
-  return mock.rateApplication(id, rating);
-  // return request('POST', `/admin/applications/${id}/rating`, { body: { rating } });
+  return request('POST', `/admin/applications/${id}/rating`, { body: { rating } });
 }
 
 /** → 201 { ok } · 422 */

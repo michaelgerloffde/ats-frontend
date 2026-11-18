@@ -8,9 +8,23 @@ import multer from "multer";
 import { db } from "../db.js";
 import { validateApplication, MAX_FILE_BYTES } from "../lib/validation.js";
 import { deleteApplication, UPLOAD_DIR } from '../lib/applications.js';
+import { rateLimit } from '../lib/rate-limit.js';
+
 
 const router = Router();
 
+
+// Rate-Limits (E7): gegen Spam-Bewerbungen und gegen das Durchprobieren von Status-Links
+const applyLimit = rateLimit({
+  max: 10,
+  windowMs: 60 * 60 * 1000,
+  message: 'Zu viele Bewerbungen in kurzer Zeit. Bitte versuche es später noch einmal.',
+});
+const statusLimit = rateLimit({
+  max: 30,
+  windowMs: 60 * 1000,
+  message: 'Zu viele Anfragen. Bitte warte einen Moment.',
+});
 
 const PER_PAGE = 10;
 
@@ -157,8 +171,11 @@ router.get("/home", (req, res) => {
 
 // POST /api/jobs/:id/apply – Bewerbung empfangen und prüfen (Speichern folgt in Etappe 4)
 // upload.single('cv') liest das Feld "cv" als Datei nach req.file, die Textfelder nach req.body
-router.post("/jobs/:id/apply", upload.single("cv"), (req, res) => {
-  // Honeypot: Menschen sehen das Feld nicht, Bots füllen es aus → so tun, als ob es geklappt hätte
+router.post("/jobs/:id/apply", applyLimit, upload.single("cv"), (req, res) => {
+  // Ohne Formulardaten (kein multipart) ist req.body leer -> leeres Objekt statt Absturz
+  req.body ??= {};
+
+  // Honeypot: Menschen sehen das Feld nicht, Bots füllen es aus -> so tun, als ob es geklappt hätte
   if (req.body.website) {
     return res.status(200).json({ ok: true });
   }
@@ -264,8 +281,8 @@ router.post("/jobs/:id/apply", upload.single("cv"), (req, res) => {
 
 
 // Statusseite: Bewerbung über den Token aus dem Status-Link abrufen
-router.get('/status/:token', (req, res) => {
-  const application = db.prepare(`
+router.get('/status/:token', statusLimit, (req, res) => {
+    const application = db.prepare(`
     SELECT a.id, a.status, a.delete_after, a.created_at, j.title AS job_title
     FROM applications a
     JOIN jobs j ON j.id = a.job_id
@@ -297,8 +314,8 @@ router.get('/status/:token', (req, res) => {
 
 
 // Bewerbung zurückziehen: alle Daten und die PDF sofort löschen (E5)
-router.post('/status/:token/withdraw', (req, res) => {
-  if (req.body?.confirm !== true) {
+router.post('/status/:token/withdraw', statusLimit, (req, res) => {
+    if (req.body?.confirm !== true) {
     return res.status(422).json({ error: 'Bitte bestätige, dass Du Deine Bewerbung zurückziehen möchtest.' });
   }
 

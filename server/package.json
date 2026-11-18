@@ -6,13 +6,15 @@
   "scripts": {
     "test": "node --test",
     "dev": "node --watch index.js",
-    "init-db": "node --env-file=.env scripts/init-db.js"  },
+    "init-db": "node --env-file=.env scripts/init-db.js"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "dependencies": {
     "express": "^5.3.0",
+    "helmet": "^8.3.0",
     "multer": "^2.5.0"
   }
 }

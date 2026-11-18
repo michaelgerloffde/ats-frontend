@@ -1,4 +1,5 @@
 import express from 'express';
+import helmet from 'helmet';
 import multer from 'multer';
 import publicRoutes from './routes/public.js';
 import authRoutes from './routes/auth.js';
@@ -6,6 +7,10 @@ import adminRoutes from './routes/admin.js';
 
 // Express-App erstellen (gestartet wird sie in index.js)
 export const app = express();
+
+
+// Sicherheits-Header für alle Antworten (E7); entfernt auch "X-Powered-By: Express"
+app.use(helmet());
 
 // Middleware: JSON-Daten aus Anfragen nach req.body lesen
 app.use(express.json());

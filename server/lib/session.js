@@ -89,3 +89,20 @@ export function requireAdmin(req, res, next) {
   }
   next();
 }
+
+// CSRF-Schutz: Token aus dem Sitzungs-Cookie ableiten (eigener Zweck "csrf:")
+export function csrfToken(token) {
+  return crypto.createHash('sha256').update(`csrf:${token}`).digest('hex');
+}
+
+// Wächter gegen CSRF: ändernde Anfragen brauchen den passenden Header, sonst 403
+export function requireCsrf(req, res, next) {
+  if (req.method === 'GET' || req.method === 'HEAD') return next();
+
+  const expected = Buffer.from(csrfToken(readSessionCookie(req) ?? ''));
+  const sent = Buffer.from(String(req.headers['x-csrf-token'] ?? ''));
+  if (sent.length !== expected.length || !crypto.timingSafeEqual(sent, expected)) {
+    return res.status(403).json({ error: 'Sicherheitsprüfung fehlgeschlagen. Bitte lade die Seite neu.' });
+  }
+  next();
+}

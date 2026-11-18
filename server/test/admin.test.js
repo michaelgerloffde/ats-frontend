@@ -15,7 +15,7 @@ process.env.UPLOAD_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'ats-test-'));
 const { db } = await import('../db.js');
 await import('../scripts/init-db.js');
 const { app } = await import('../app.js');
-const { createSession } = await import('../lib/session.js');
+const { createSession, csrfToken } = await import('../lib/session.js');
 
 let server;
 let baseUrl;
@@ -66,7 +66,12 @@ beforeEach(() => {
 function api(method, url, cookie, body) {
   return fetch(`${baseUrl}${url}`, {
     method,
-    headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+    headers: {
+      Cookie: cookie,
+      'Content-Type': 'application/json',
+      // CSRF-Token passend zum Cookie (wie das Frontend es mitschickt)
+      'X-CSRF-Token': csrfToken(cookie.slice('sid='.length)),
+    },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 }

@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { Router } from 'express';
 import { db } from '../db.js';
-import { requireAdmin, requireLogin } from '../lib/session.js';
+import { requireAdmin, requireCsrf, requireLogin } from '../lib/session.js';
 import { EMAIL_PATTERN, validateJob } from '../lib/validation.js';
 import { deleteApplication, UPLOAD_DIR } from '../lib/applications.js';
 import { hashPassword, MIN_PASSWORD_LENGTH } from '../lib/password.js';
@@ -49,7 +49,7 @@ const APPLICATION_SELECT = `
 `;
 
 // Alle Routen in dieser Datei nur mit Login (E3)
-router.use(requireLogin);
+router.use(requireLogin, requireCsrf);
 
 // Dashboard: Kennzahlen, Anzahl je Stufe, die 5 neuesten Bewerbungen
 router.get('/dashboard', (req, res) => {

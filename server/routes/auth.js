@@ -3,7 +3,7 @@ import { db } from '../db.js';
 import { hashPassword, verifyPassword } from '../lib/password.js';
 import { clearFailures, lockedMinutes, recordFailure } from '../lib/login-lock.js';
 import {
-  COOKIE_NAME, cookieOptions, createSession, deleteSession, getSessionUser, readSessionCookie,
+  COOKIE_NAME, cookieOptions, createSession, deleteSession, csrfToken, getSessionUser, readSessionCookie,
 } from '../lib/session.js';
 
 const router = Router();
@@ -37,7 +37,11 @@ router.post('/login', async (req, res) => {
   clearFailures(email);
   const token = createSession(user.id);
   res.cookie(COOKIE_NAME, token, cookieOptions);
-  res.json({ user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+  // Nutzer und CSRF-Token zurückgeben
+  res.json({
+    user: { id: user.id, name: user.name, email: user.email, role: user.role },
+    csrfToken: csrfToken(token),
+  });
 });
 
 // Abmelden: Sitzung in der Datenbank löschen und Cookie entfernen
@@ -49,7 +53,10 @@ router.post('/logout', (req, res) => {
 
 // Wer ist angemeldet? Das Frontend fragt das beim Start
 router.get('/session', (req, res) => {
-  res.json({ user: getSessionUser(readSessionCookie(req)) });
+  // Nutzer und (falls angemeldet) CSRF-Token zurückgeben
+  const token = readSessionCookie(req);
+  const user = getSessionUser(token);
+  res.json({ user, csrfToken: user ? csrfToken(token) : null });
 });
 
 export default router;

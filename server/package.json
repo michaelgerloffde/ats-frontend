@@ -6,6 +6,7 @@
   "scripts": {
     "test": "node --test",
     "dev": "node --watch index.js",
+    "start": "NODE_ENV=production node index.js",
     "init-db": "node --env-file=.env scripts/init-db.js"
   },
   "keywords": [],

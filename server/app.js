@@ -1,3 +1,4 @@
+import path from 'node:path';
 import express from 'express';
 import helmet from 'helmet';
 import multer from 'multer';
@@ -22,6 +23,22 @@ app.use('/api', authRoutes);
 
 // Verwaltungsbereich: nur mit Login
 app.use('/api/admin', adminRoutes);
+
+// Unbekannte API-Adressen: 404 als JSON statt der HTML-Standardseite von Express
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'Diese Adresse gibt es nicht.' });
+});
+
+// Im Betrieb liefert der Server auch das fertige Frontend aus (Vite-Build im Ordner dist)
+if (process.env.NODE_ENV === 'production') {
+  const distDir = path.join(import.meta.dirname, '..', 'dist');
+  app.use(express.static(distDir));
+
+  // Alle übrigen Adressen (z. B. /admin/applications/3) -> index.html, React-Router übernimmt
+  app.get('/{*pfad}', (req, res) => {
+    res.sendFile(path.join(distDir, 'index.html'));
+  });
+}
 
 // Fehlerbehandlung: Middleware mit 4 Parametern, läuft nur nach einem Fehler.
 // Muss nach den Routen stehen, damit sie deren Fehler auffängt.

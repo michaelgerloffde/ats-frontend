@@ -50,9 +50,7 @@ export default function ApplicationDetail() {
   };
 
   const download = (fileId) => {
-    const url = attachmentUrl(fileId);
-    if (url) window.open(url, '_blank', 'noopener');
-    else toast('Im Mock gibt es nur für frisch hochgeladene Bewerbungen eine echte Datei.', 'error');
+    window.open(attachmentUrl(fileId), '_blank', 'noopener');
   };
 
   return (

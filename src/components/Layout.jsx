@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useSession } from '../context/SessionContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
-import { resetMockData } from '../api';
 
 export default function Layout() {
   const { user, logout, isAdmin } = useSession();
@@ -68,11 +67,6 @@ export default function Layout() {
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4 text-sm text-slate-500 sm:px-6">
           <span>Studienprojekt · fiktives Unternehmen · nur synthetische Daten</span>
           <span className="flex items-center gap-4">
-            <button type="button" className="underline-offset-2 hover:underline"
-              title="Datenquelle: src/api/mock.js"
-              onClick={() => { resetMockData(); window.location.assign('/'); }}>
-              Demo-Daten zurücksetzen
-            </button>
             <Link to="/datenschutz" className="text-brand-700 hover:underline">Datenschutzhinweise</Link>
           </span>
         </div>

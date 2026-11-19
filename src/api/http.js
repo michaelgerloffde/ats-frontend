@@ -3,13 +3,13 @@ import { ApiError } from './ApiError.js';
 let csrfToken = null;
 
 /**
- * Echter HTTP-Client für Dein eigenes Backend.
- * Wird erst benutzt, wenn Du in src/api/index.js eine Funktion von mock auf http umstellst.
+ * HTTP-Client für das eigene Backend. Alle Anfragen des Frontends laufen hierüber.
  *
- *   request('GET', '/jobs?q=Lager')                    → GET  /api/jobs?q=Lager
- *   request('POST', '/login', { body: { email, … } })   → JSON im Body
- *   request('POST', '/jobs/1/apply', { formData })      → Formular mit Datei (multipart)
+ *   request('GET', '/jobs?q=Lager')                       → GET  /api/jobs?q=Lager
+ *   request('POST', '/login', { body: { email, … } })     → JSON im Body
+ *   request('POST', '/jobs/1/apply', { formData })        → Formular mit Datei (multipart)
  *
+ * Bei POST/PUT/DELETE wird der CSRF-Token mitgeschickt.
  * Gibt das JSON der Antwort zurück oder wirft einen ApiError.
  */
 export async function request(method, path, { body, formData } = {}) {

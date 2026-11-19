@@ -1,39 +1,20 @@
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { once } from 'node:events';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
+import { db, startTestServer, stopTestServer } from './helpers.js';
 
-// Testumgebung: Datenbank nur im Arbeitsspeicher, PDFs in einen eigenen Temp-Ordner
-process.env.DB_FILE = ':memory:';
-process.env.ADMIN_EMAIL = 'admin@test.de';
-process.env.ADMIN_PASSWORD = 'testpasswort-mit-15-zeichen';
-process.env.UPLOAD_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'ats-test-'));
-
-// Erst danach laden, damit db.js und die Routen die Testwerte übernehmen
-const { db } = await import('../db.js');
-await import('../scripts/init-db.js');
-const { app } = await import('../app.js');
 const { createSession, csrfToken } = await import('../lib/session.js');
 const { purgeExpired } = await import('../lib/purge.js');
 
-let server;
 let baseUrl;
 let adminToken;   // Cookie-Wert des Admins (ohne "sid=")
 
-// Vor allen Tests: Server starten
+// Server vor allen Tests starten, danach stoppen (gemeinsam in helpers.js)
 before(async () => {
-  server = app.listen(0);
-  await once(server, 'listening');
-  baseUrl = `http://127.0.0.1:${server.address().port}/api`;
+  baseUrl = await startTestServer();
 });
-
-// Nach allen Tests: Server stoppen, Temp-Ordner löschen
-after(() => {
-  server.close();
-  fs.rmSync(process.env.UPLOAD_DIR, { recursive: true, force: true });
-});
+after(stopTestServer);
 
 // Vor jedem Test: Bewerbungsdaten leeren, frische Admin-Sitzung
 beforeEach(() => {

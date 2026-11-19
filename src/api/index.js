@@ -1,18 +1,10 @@
 /**
  * DIE API-SCHICHT – die einzige Stelle, an der das Frontend mit "dem Server" spricht.
- *
- * Jede Seite importiert ihre Funktionen von hier, z. B.  import { getJobs } from '../api';
- * Im Moment antwortet überall der Mock (./mock.js). Wenn Dein Backend eine Route kann,
- * stellst Du hier GENAU EINE Funktion um: Mock-Zeile auskommentieren, http-Zeile einkommentieren.
- * Die Seiten musst Du dafür nicht anfassen – sie erwarten dieselbe Antwort-Form.
- *
- * Die Antwort-Formen und Fehlercodes jeder Funktion stehen in API.md.
  */
-import * as mock from './mock.js';
+
 import { request } from './http.js'; // eslint-disable-line no-unused-vars
 
 export { ApiError } from './ApiError.js';
-export { resetMockData } from './mock.js';
 
 // ---------- Session / Login ----------
 
@@ -131,7 +123,7 @@ export function deleteApplication(id) {
   return request('DELETE', `/admin/applications/${id}`);
 }
 
-/** Link zum Herunterladen des Lebenslaufs (oder null, wenn im Mock keine Datei vorliegt) */
+/** Link zum Herunterladen des Lebenslaufs (nur mit Login) */
 export function attachmentUrl(attachmentId) {
  return `/api/admin/attachments/${attachmentId}`;
 }
